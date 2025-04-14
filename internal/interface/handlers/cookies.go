@@ -30,5 +30,5 @@ func GetCookie(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// return the answer
-	fmt.Fprintf(w, "Cookie 'ID' have the value : %s", cookie.Expires)
+	fmt.Fprintf(w, "Cookie 'ID' have the value : %s", cookie.Value)
 }
