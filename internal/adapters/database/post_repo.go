@@ -5,28 +5,22 @@ import (
 	"1337b04rd/internal/app/domain/ports"
 	"database/sql"
 	"fmt"
-
-	_ "github.com/lib/pq" // Импортируем драйвер PostgreSQL
 )
 
-// Реализация репозитория постов для PostgreSQL
 type PostRepositoryPg struct {
-	db *sql.DB // Подключение к базе данных
+	db *sql.DB
 }
 
-// Конструктор для создания нового PostRepositoryPg
 func NewPostRepositoryPg(db *sql.DB) ports.PostRepository {
 	return &PostRepositoryPg{db: db}
 }
 
-// Создание нового поста
+// Создание поста
 func (r *PostRepositoryPg) CreatePost(post *models.Post) (*models.Post, error) {
-	// Запрос на создание поста
-	query := `INSERT INTO posts (id, title, text, user_id, user_name, user_avatar, image_url, created_at, updated_at) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`
+	query := `INSERT INTO posts (id, title, text, user_id, user_name, user_avatar, image_url, created_at, updated_at, is_hidden) 
+	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`
 
-	// Выполняем запрос
-	err := r.db.QueryRow(query, post.ID, post.Title, post.Text, post.UserID, post.UserName, post.UserAvatar, post.ImageURL, post.CreatedAt, post.UpdatedAt).Scan(&post.ID)
+	err := r.db.QueryRow(query, post.ID, post.Title, post.Text, post.UserID, post.UserName, post.UserAvatar, post.ImageURL, post.CreatedAt, post.UpdatedAt, post.IsHidden).Scan(&post.ID)
 	if err != nil {
 		return nil, fmt.Errorf("error creating post: %v", err)
 	}
@@ -34,12 +28,11 @@ func (r *PostRepositoryPg) CreatePost(post *models.Post) (*models.Post, error) {
 	return post, nil
 }
 
-// Обновление поста
+// Обновление поста (включая скрытие)
 func (r *PostRepositoryPg) UpdatePost(post *models.Post) (*models.Post, error) {
-	// Запрос на обновление поста
-	query := `UPDATE posts SET title = $1, text = $2, user_name = $3, user_avatar = $4, image_url = $5, updated_at = $6 WHERE id = $7`
+	query := `UPDATE posts SET title = $1, text = $2, user_name = $3, user_avatar = $4, image_url = $5, updated_at = $6, is_hidden = $7 WHERE id = $8`
 
-	_, err := r.db.Exec(query, post.Title, post.Text, post.UserName, post.UserAvatar, post.ImageURL, post.UpdatedAt, post.ID)
+	_, err := r.db.Exec(query, post.Title, post.Text, post.UserName, post.UserAvatar, post.ImageURL, post.UpdatedAt, post.IsHidden, post.ID)
 	if err != nil {
 		return nil, fmt.Errorf("error updating post: %v", err)
 	}
@@ -49,7 +42,6 @@ func (r *PostRepositoryPg) UpdatePost(post *models.Post) (*models.Post, error) {
 
 // Удаление поста
 func (r *PostRepositoryPg) DeletePost(id string) error {
-	// Запрос на удаление поста
 	query := `DELETE FROM posts WHERE id = $1`
 
 	_, err := r.db.Exec(query, id)
@@ -62,11 +54,10 @@ func (r *PostRepositoryPg) DeletePost(id string) error {
 
 // Получение поста по ID
 func (r *PostRepositoryPg) GetPostByID(id string) (*models.Post, error) {
-	// Запрос на получение поста
-	query := `SELECT id, title, text, user_id, user_name, user_avatar, image_url, created_at, updated_at FROM posts WHERE id = $1`
+	query := `SELECT id, title, text, user_id, user_name, user_avatar, image_url, created_at, updated_at, is_hidden FROM posts WHERE id = $1`
 
 	var post models.Post
-	err := r.db.QueryRow(query, id).Scan(&post.ID, &post.Title, &post.Text, &post.UserID, &post.UserName, &post.UserAvatar, &post.ImageURL, &post.CreatedAt, &post.UpdatedAt)
+	err := r.db.QueryRow(query, id).Scan(&post.ID, &post.Title, &post.Text, &post.UserID, &post.UserName, &post.UserAvatar, &post.ImageURL, &post.CreatedAt, &post.UpdatedAt, &post.IsHidden)
 	if err != nil {
 		return nil, fmt.Errorf("error getting post by id: %v", err)
 	}
@@ -74,10 +65,11 @@ func (r *PostRepositoryPg) GetPostByID(id string) (*models.Post, error) {
 	return &post, nil
 }
 
-// Получение всех постов
+// Получение всех видимых постов
 func (r *PostRepositoryPg) GetAllPosts() ([]*models.Post, error) {
-	// Запрос на получение всех постов
-	query := `SELECT id, title, text, user_id, user_name, user_avatar, image_url, created_at, updated_at FROM posts`
+	query := `SELECT id, title, text, user_id, user_name, user_avatar, image_url, created_at, updated_at, is_hidden 
+	          FROM posts 
+	          WHERE is_hidden = FALSE`
 
 	rows, err := r.db.Query(query)
 	if err != nil {
@@ -88,7 +80,7 @@ func (r *PostRepositoryPg) GetAllPosts() ([]*models.Post, error) {
 	var posts []*models.Post
 	for rows.Next() {
 		var post models.Post
-		err := rows.Scan(&post.ID, &post.Title, &post.Text, &post.UserID, &post.UserName, &post.UserAvatar, &post.ImageURL, &post.CreatedAt, &post.UpdatedAt)
+		err := rows.Scan(&post.ID, &post.Title, &post.Text, &post.UserID, &post.UserName, &post.UserAvatar, &post.ImageURL, &post.CreatedAt, &post.UpdatedAt, &post.IsHidden)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning row: %v", err)
 		}
@@ -100,4 +92,16 @@ func (r *PostRepositoryPg) GetAllPosts() ([]*models.Post, error) {
 	}
 
 	return posts, nil
+}
+
+// Скрытие поста (для автоматической очистки)
+func (r *PostRepositoryPg) HidePost(id string) error {
+	query := `UPDATE posts SET is_hidden = TRUE WHERE id = $1`
+
+	_, err := r.db.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("error hiding post: %v", err)
+	}
+
+	return nil
 }

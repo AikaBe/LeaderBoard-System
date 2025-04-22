@@ -1,44 +1,59 @@
 package main
 
 import (
+	d "1337b04rd/internal/adapters/database"
+	"1337b04rd/internal/app/domain/ports"
+	"1337b04rd/internal/app/domain/services"
 	"1337b04rd/internal/interface/handlers"
+	"1337b04rd/internal/interface/middleware"
+	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
+
+	_ "github.com/lib/pq" // Импортируем драйвер PostgreSQL
 )
 
-func main() {
-	http.HandleFunc("/setcookie", handlers.SetCookie)
-	http.HandleFunc("/getcookie", handlers.GetCookie)
+func initRepository(dsn string) (ports.PostRepository, *sql.DB, error) {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error connecting to database: %v", err)
+	}
 
-	fmt.Println("Server start at http://localhost:8080 ")
-	http.ListenAndServe(":8080", nil)
+	postRepo := d.NewPostRepositoryPg(db)
+
+	return postRepo, db, nil
 }
 
-// // Строка подключения к PostgreSQL
-// connStr := "postgres://user:password@localhost:5432/mydb?sslmode=disable"
-// db, err := sql.Open("postgres", connStr)
-// if err != nil {
-// 	log.Fatal("Unable to connect to database:", err)
-// }
-// defer db.Close()
+func main() {
+	// DSN строка подключения (пример)
+	dsn := "host=localhost port=5432 user=latte password=latte dbname=frappuccino sslmode=disable"
 
-// // Проверка подключения
-// err = db.Ping()
-// if err != nil {
-// 	log.Fatal("Unable to ping database:", err)
-// }
+	postRepo, db, err := initRepository(dsn)
+	if err != nil {
+		log.Fatalf("Ошибка инициализации репозитория: %v", err)
+	}
+	defer db.Close()
 
-// // Создаем репозиторий
-// postRepo := repositories.NewPostRepositoryPg(db)
+	// Создаем сервис для работы с постами
+	postService := services.NewPostService(postRepo)
 
-// // Создаем сервис с репозиторием
-// postService := services.NewPostService(postRepo)
+	// Создаем обработчик
+	postHandler := handlers.NewPostHandler(postService)
 
-// // Пример работы с сервисом
-// _, err = postService.CreatePost("Post title", "Post text", "user123", "User Name", "User Avatar", "http://example.com/image.jpg")
-// if err != nil {
-// 	log.Fatal("Error creating post:", err)
-// }
+	// Прокидываем зависимости в middleware
+	mux := http.NewServeMux()
+	mux.HandleFunc("/login", middleware.LoginHandler)
+	mux.HandleFunc("/last-visit", middleware.LastVisitHandler)
 
-// fmt.Println("Post created successfully!")
-// }
+	// Привязываем обработчики к маршрутам
+	mux.HandleFunc("/posts", postHandler.GetAllPosts)      // Получение всех постов
+	mux.HandleFunc("/create-post", postHandler.CreatePost) // Создание нового поста
+
+	// Запуск сервера
+	log.Println("Сервер работает на порту 8080...")
+	err = http.ListenAndServe(":8080", mux)
+	if err != nil {
+		log.Fatal("Ошибка при запуске сервера: ", err)
+	}
+}

@@ -82,12 +82,16 @@ func (s *PostService) UpdateUserName(postID, newUserName string) error {
 // Метод для удаления поста после определенного времени
 func (s *PostService) schedulePostDeletion(postID string, delay time.Duration) {
 	time.Sleep(delay)
+
 	post, err := s.PostRepository.GetPostByID(postID)
-	if err != nil {
+	if err != nil || post == nil {
 		return
 	}
-	if post != nil {
-		_ = s.PostRepository.DeletePost(postID)
+
+	if s.IsPostExpired(post) {
+		post.IsHidden = true
+		post.UpdatedAt = time.Now()
+		_, _ = s.PostRepository.UpdatePost(post) // обновляем флаг скрытия
 	}
 }
 
