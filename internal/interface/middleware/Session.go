@@ -42,16 +42,16 @@ func GetCookieValue(r *http.Request, cookieName string) (string, error) {
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	sessionId, err := GetCookieValue(r, "sessionId")
 	if err != nil || sessionId == "" {
+
 		sessionId = GenerateSessionID()
 		http.SetCookie(w, &http.Cookie{
 			Name:     "sessionId",
 			Value:    sessionId,
 			Path:     "/",
-			Expires:  time.Now().Add(24 * time.Hour),
+			Expires:  time.Now().Add(7 * 24 * time.Hour),
 			HttpOnly: true,
 		})
-
-		character, err := api.GetRandomCharacter()
+		character, err := api.GetNextCharacter()
 		if err != nil {
 			http.Error(w, "Ошибка при получении персонажа", http.StatusInternalServerError)
 			return
