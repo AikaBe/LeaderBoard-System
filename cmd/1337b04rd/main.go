@@ -31,10 +31,10 @@ func main() {
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./web/templates"))))
 
 	// Главный маршрут, который будет открывать файл catalog.html
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/", middleware.LoginOrLastVisitHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath.Join("web", "templates", "catalog.html"))
-	})
-	mux.HandleFunc("/chat", middleware.LoginOrLastVisitHandler)
+	})))
+	// mux.HandleFunc("/chat", middleware.LoginOrLastVisitHandler)
 
 	// Запуск сервера
 	log.Println("Сервер работает на порту 8080...")
