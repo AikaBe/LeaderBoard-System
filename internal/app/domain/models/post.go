@@ -9,7 +9,6 @@ type Post struct {
 	ID         string
 	Title      string
 	Text       string
-	UserID     string
 	UserName   string
 	UserAvatar string
 	ImageURL   string

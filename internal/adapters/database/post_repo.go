@@ -5,6 +5,7 @@ import (
 	"1337b04rd/internal/app/domain/ports"
 	"database/sql"
 	"fmt"
+	"strconv"
 )
 
 type PostRepositoryPg struct {
@@ -17,10 +18,11 @@ func NewPostRepositoryPg(db *sql.DB) ports.PostRepository {
 
 // Создание поста
 func (r *PostRepositoryPg) CreatePost(post *models.Post) (*models.Post, error) {
-	query := `INSERT INTO posts (id, title, text, user_id, user_name, user_avatar, image_url, created_at, updated_at, is_hidden) 
-	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`
+	query := `INSERT INTO posts (title, text, user_name, user_avatar, image_url, created_at, updated_at, is_hidden) 
+	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`
 
-	err := r.db.QueryRow(query, post.ID, post.Title, post.Text, post.UserID, post.UserName, post.UserAvatar, post.ImageURL, post.CreatedAt, post.UpdatedAt, post.IsHidden).Scan(&post.ID)
+	// Выполняем запрос и получаем автоматически сгенерированный id
+	err := r.db.QueryRow(query, post.Title, post.Text, post.UserName, post.UserAvatar, post.ImageURL, post.CreatedAt, post.UpdatedAt, post.IsHidden).Scan(&post.ID)
 	if err != nil {
 		return nil, fmt.Errorf("error creating post: %v", err)
 	}
@@ -42,9 +44,15 @@ func (r *PostRepositoryPg) UpdatePost(post *models.Post) (*models.Post, error) {
 
 // Удаление поста
 func (r *PostRepositoryPg) DeletePost(id string) error {
+	// Преобразуем id из строки в int
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		return fmt.Errorf("invalid id format: %v", err)
+	}
+
 	query := `DELETE FROM posts WHERE id = $1`
 
-	_, err := r.db.Exec(query, id)
+	_, err = r.db.Exec(query, idInt)
 	if err != nil {
 		return fmt.Errorf("error deleting post: %v", err)
 	}
@@ -54,10 +62,16 @@ func (r *PostRepositoryPg) DeletePost(id string) error {
 
 // Получение поста по ID
 func (r *PostRepositoryPg) GetPostByID(id string) (*models.Post, error) {
-	query := `SELECT id, title, text, user_id, user_name, user_avatar, image_url, created_at, updated_at, is_hidden FROM posts WHERE id = $1`
+	// Преобразуем id из строки в int
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		return nil, fmt.Errorf("invalid id format: %v", err)
+	}
+
+	query := `SELECT id, title, text,  user_name, user_avatar, image_url, created_at, updated_at, is_hidden FROM posts WHERE id = $1`
 
 	var post models.Post
-	err := r.db.QueryRow(query, id).Scan(&post.ID, &post.Title, &post.Text, &post.UserID, &post.UserName, &post.UserAvatar, &post.ImageURL, &post.CreatedAt, &post.UpdatedAt, &post.IsHidden)
+	err = r.db.QueryRow(query, idInt).Scan(&post.ID, &post.Title, &post.Text, &post.UserName, &post.UserAvatar, &post.ImageURL, &post.CreatedAt, &post.UpdatedAt, &post.IsHidden)
 	if err != nil {
 		return nil, fmt.Errorf("error getting post by id: %v", err)
 	}
@@ -67,7 +81,7 @@ func (r *PostRepositoryPg) GetPostByID(id string) (*models.Post, error) {
 
 // Получение всех видимых постов
 func (r *PostRepositoryPg) GetAllPosts() ([]*models.Post, error) {
-	query := `SELECT id, title, text, user_id, user_name, user_avatar, image_url, created_at, updated_at, is_hidden 
+	query := `SELECT id, title, text,  user_name, user_avatar, image_url, created_at, updated_at, is_hidden 
 	          FROM posts 
 	          WHERE is_hidden = FALSE`
 
@@ -80,7 +94,7 @@ func (r *PostRepositoryPg) GetAllPosts() ([]*models.Post, error) {
 	var posts []*models.Post
 	for rows.Next() {
 		var post models.Post
-		err := rows.Scan(&post.ID, &post.Title, &post.Text, &post.UserID, &post.UserName, &post.UserAvatar, &post.ImageURL, &post.CreatedAt, &post.UpdatedAt, &post.IsHidden)
+		err := rows.Scan(&post.ID, &post.Title, &post.Text, &post.UserName, &post.UserAvatar, &post.ImageURL, &post.CreatedAt, &post.UpdatedAt, &post.IsHidden)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning row: %v", err)
 		}
@@ -96,9 +110,15 @@ func (r *PostRepositoryPg) GetAllPosts() ([]*models.Post, error) {
 
 // Скрытие поста (для автоматической очистки)
 func (r *PostRepositoryPg) HidePost(id string) error {
+	// Преобразуем id из строки в int
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		return fmt.Errorf("invalid id format: %v", err)
+	}
+
 	query := `UPDATE posts SET is_hidden = TRUE WHERE id = $1`
 
-	_, err := r.db.Exec(query, id)
+	_, err = r.db.Exec(query, idInt)
 	if err != nil {
 		return fmt.Errorf("error hiding post: %v", err)
 	}

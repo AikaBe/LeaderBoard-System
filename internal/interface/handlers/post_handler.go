@@ -32,7 +32,7 @@ func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Создаем новый пост через сервис
-	createdPost, err := h.PostService.CreatePost(post.Title, post.Text, post.UserID, post.UserName, post.UserAvatar, post.ImageURL)
+	createdPost, err := h.PostService.CreatePost(post.Title, post.Text, post.UserName, post.UserAvatar, post.ImageURL)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

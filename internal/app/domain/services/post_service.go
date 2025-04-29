@@ -32,13 +32,13 @@ func (s *PostService) IsPostExpired(p *models.Post) bool {
 }
 
 // Создание нового поста
-func (s *PostService) CreatePost(title, text, userID string, userName, userAvatar, imageURL string) (*models.Post, error) {
-	postID := generateUniqueID()
+// Метод для создания поста
+func (s *PostService) CreatePost(title, text, userName, userAvatar, imageURL string) (*models.Post, error) {
+	postID := generateUniqueID() // Генерация уникального ID для поста
 	post := &models.Post{
 		ID:         postID,
 		Title:      title,
 		Text:       text,
-		UserID:     userID,
 		UserName:   userName,
 		UserAvatar: userAvatar,
 		ImageURL:   imageURL,

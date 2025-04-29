@@ -1,6 +1,6 @@
 -- Таблица пользователей (если нужно хранить UserData)
 CREATE TABLE users (
-    id UUID PRIMARY KEY,
+    id SERIAL PRIMARY KEY,  -- Используем SERIAL для автоинкремента
     name TEXT NOT NULL,
     avatar TEXT,
     last_visit TIMESTAMP
@@ -8,26 +8,24 @@ CREATE TABLE users (
 
 -- Таблица постов
 CREATE TABLE posts (
-    id UUID PRIMARY KEY,
+    id SERIAL PRIMARY KEY,  -- Автоинкремент
     title TEXT NOT NULL,
     text TEXT NOT NULL,
-    user_id UUID NOT NULL,
-    user_name TEXT NOT NULL,
-    user_avatar TEXT,
+    user_name TEXT NOT NULL,  -- Имя пользователя
+    user_avatar TEXT,         -- Аватар пользователя
     image_url TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_hidden BOOLEAN DEFAULT FALSE
 );
 
 -- Таблица комментариев
 CREATE TABLE comments (
-    id UUID PRIMARY KEY,
-    post_id UUID NOT NULL,
-    user_id UUID NOT NULL,
-    user_name TEXT NOT NULL,
+    id SERIAL PRIMARY KEY,  -- Автоинкремент
+    post_id INT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,  -- Внешний ключ на posts
+    parent_comment_id INT REFERENCES comments(id) ON DELETE CASCADE,  -- Внешний ключ на comments
+    user_name TEXT NOT NULL,  -- Имя пользователя
+    user_avatar TEXT,         -- Аватар пользователя
     text TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    created_at TIMESTAMP NOT NULL DEFAULT now()
 );
