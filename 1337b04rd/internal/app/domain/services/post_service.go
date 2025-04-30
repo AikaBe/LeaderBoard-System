@@ -11,12 +11,14 @@ import (
 // Сервис для работы с постами
 type PostService struct {
 	PostRepository ports.PostRepository // Используем интерфейс репозитория
+	SessionRepo    ports.SessionRepository
 }
 
 // Конструктор для создания нового PostService
-func NewPostService(postRepo ports.PostRepository) *PostService {
+func NewPostService(postRepo ports.PostRepository, sessionRepo ports.SessionRepository) *PostService {
 	return &PostService{
 		PostRepository: postRepo,
+		SessionRepo:    sessionRepo,
 	}
 }
 
@@ -31,28 +33,29 @@ func (s *PostService) IsPostExpired(p *models.Post) bool {
 	return time.Since(lastComment.CreatedAt) > 15*time.Minute
 }
 
-// Создание нового поста
-// Метод для создания поста
-func (s *PostService) CreatePost(title, text, userName, userAvatar, imageURL string) (*models.Post, error) {
-	postID := generateUniqueID() // Генерация уникального ID для поста
+func (s *PostService) CreatePost(sessionID, title, text, imageURL string) (*models.Post, error) {
+	userData, ok := s.SessionRepo.GetSessionData(sessionID)
+	if !ok {
+		return nil, fmt.Errorf("session not found")
+	}
+
+	postID := generateUniqueID()
 	post := &models.Post{
 		ID:         postID,
 		Title:      title,
 		Text:       text,
-		UserName:   userName,
-		UserAvatar: userAvatar,
+		UserName:   userData.Name,
+		UserAvatar: userData.Avatar,
 		ImageURL:   imageURL,
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
 	}
 
-	// Сохраняем пост в репозитории
 	createdPost, err := s.PostRepository.CreatePost(post)
 	if err != nil {
 		return nil, err
 	}
 
-	// Запланируем удаление поста через 10 или 15 минут
 	delay := 10 * time.Minute
 	if len(post.Comments) > 0 {
 		delay = 15 * time.Minute

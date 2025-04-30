@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"1337b04rd/internal/app/domain/models"
 	"1337b04rd/internal/app/domain/services"
 	"encoding/json"
 	"fmt"
@@ -21,24 +20,26 @@ func NewPostHandler(postService *services.PostService) *PostHandler {
 	}
 }
 
-// Метод для обработки создания поста
 func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
-	var post models.Post
-	// Декодируем данные из тела запроса в структуру post
-	err := json.NewDecoder(r.Body).Decode(&post)
-	if err != nil {
+	var input struct {
+		Title     string `json:"title"`
+		Text      string `json:"text"`
+		ImageURL  string `json:"imageURL"`
+		SessionID string `json:"sessionID"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Создаем новый пост через сервис
-	createdPost, err := h.PostService.CreatePost(post.Title, post.Text, post.UserName, post.UserAvatar, post.ImageURL)
+	// Вызываем сервис, который сам достанет имя и аватар из сессии
+	createdPost, err := h.PostService.CreatePost(input.SessionID, input.Title, input.Text, input.ImageURL)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Возвращаем созданный пост в формате JSON
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(createdPost)
