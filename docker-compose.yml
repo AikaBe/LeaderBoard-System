@@ -1,0 +1,55 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: board_user
+      POSTGRES_PASSWORD: board_pass
+      POSTGRES_DB: board_db
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+
+  app:
+    build:
+      context: ./1337b04rd  # Указываем папку с проектом для приложения
+      dockerfile: Dockerfile  # Dockerfile для приложения
+    depends_on:
+      - db
+      - triple-s
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: board_user
+      DB_PASSWORD: board_pass
+      DB_NAME: board_db
+      TRIPLE_S_HOST: triple-s
+      TRIPLE_S_PORT: 9000
+      TRIPLE_S_ACCESS_KEY: "your_access_key"
+      TRIPLE_S_SECRET_KEY: "your_secret_key"
+    restart: always
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "db", "-p", "5432"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+
+  triple-s:
+    build:
+      context: ./triple-s  # Указываем папку с проектом для triple-s
+      dockerfile: Dockerfile  # Dockerfile для triple-s
+    ports:
+      - "9000:9000"
+    environment:
+      TRIPLE_S_ACCESS_KEY: "your_access_key"  # Устанавливаем ключ доступа
+      TRIPLE_S_SECRET_KEY: "your_secret_key"  # Устанавливаем секретный ключ
+    volumes:
+      - ./triple-s/data:/data
+volumes:
+  db_data:
+  triple_s_data:

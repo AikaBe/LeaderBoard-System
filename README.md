@@ -39,12 +39,3 @@
       /middlewares    // Промежуточные слои (middleware), такие как аутентификация
     /grpc             // Если вы используете gRPC, здесь будет соответствующий код
 
-## Для постов 
-{
-  "title": "Мой первый пост",
-  "text": "Это текст моего поста!",
-  "userID": "1",
-  "userName": "Leila",
-  "userAvatar": "https://example.com/avatar.jpg",
-  "imageURL": "https://example.com/post-image.jpg"
-}
