@@ -4,6 +4,7 @@ import (
 	"1337b04rd/internal/app/domain/models"
 	"1337b04rd/internal/app/domain/ports"
 	"errors"
+	"time"
 )
 
 // Структура для CommentService
@@ -19,28 +20,28 @@ func NewCommentService(repo ports.CommentRepository) *CommentService {
 }
 
 // Метод для создания комментария
+
 func (s *CommentService) CreateComment(comment models.Comment) (*models.Comment, error) {
-	// Пример базовой валидации (можно расширить)
 	if comment.PostID == "" || comment.UserName == "" || comment.Text == "" {
 		return nil, errors.New("missing required fields (PostID, UserName, Text)")
 	}
 
-	// Вызываем репозиторий для создания комментария
+	// Установим дату, если не пришла
+	if comment.CreatedAt.IsZero() {
+		comment.CreatedAt = time.Now()
+	}
+
 	return s.CommentRepo.CreateComment(comment)
 }
 
-// Метод для получения комментариев по ID поста
 func (s *CommentService) GetCommentsByPostID(postID string) ([]*models.Comment, error) {
-	// Пример дополнительной проверки на пустой postID
 	if postID == "" {
 		return nil, errors.New("invalid PostID")
 	}
 	return s.CommentRepo.GetCommentsByPostID(postID)
 }
 
-// Метод для удаления комментария
 func (s *CommentService) DeleteComment(commentID string) error {
-	// Пример проверки на пустой commentID
 	if commentID == "" {
 		return errors.New("invalid CommentID")
 	}

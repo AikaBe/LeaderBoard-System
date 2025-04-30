@@ -9,51 +9,57 @@ import (
 	"time"
 )
 
-// Структура CommentHandler
 type CommentHandler struct {
 	CommentService *services.CommentService
 }
 
-// Конструктор для CommentHandler
 func NewCommentHandler(commentService *services.CommentService) *CommentHandler {
 	return &CommentHandler{
 		CommentService: commentService,
 	}
 }
 
-// Структура ответа для создания комментария
 type CreateCommentResponse struct {
-	ID         int    `json:"id"`         // ID нового комментария
-	UserAvatar string `json:"userAvatar"` // Аватар пользователя
+	ID         int    `json:"id"`
+	UserAvatar string `json:"userAvatar"`
 }
 
-// Метод для создания комментария
 func (h *CommentHandler) CreateComment(w http.ResponseWriter, r *http.Request) {
-	var comment models.Comment
-	err := json.NewDecoder(r.Body).Decode(&comment)
-	if err != nil {
-		http.Error(w, "Invalid comment format", http.StatusBadRequest)
+	// Извлекаем заголовок с пользовательскими данными
+	userHeader := r.Header.Get("X-User-Data")
+	if userHeader == "" {
+		http.Error(w, "Missing user data", http.StatusUnauthorized)
 		return
 	}
 
-	// Проверяем, что дата корректно парсится
-	if comment.CreatedAt.IsZero() {
-		http.Error(w, "Invalid date format", http.StatusBadRequest)
+	// Парсим JSON из заголовка
+	var userData models.UserData
+	err := json.Unmarshal([]byte(userHeader), &userData)
+	if err != nil || userData.Name == "" {
+		http.Error(w, "Invalid user data", http.StatusUnauthorized)
 		return
 	}
-	// Если клиент не передал дату — устанавливаем её
-	if comment.CreatedAt.IsZero() {
-		comment.CreatedAt = time.Now()
+
+	// Декодим тело запроса (только текст и PostID от клиента)
+	var comment models.Comment
+	err = json.NewDecoder(r.Body).Decode(&comment)
+	if err != nil || comment.Text == "" || comment.PostID == "" {
+		http.Error(w, "Invalid comment data", http.StatusBadRequest)
+		return
 	}
+
+	// Заполняем поля, доверяя только userHeader
+	comment.UserName = userData.Name
+	comment.UserAvatar = userData.Avatar
+	comment.CreatedAt = time.Now()
 
 	createdComment, err := h.CommentService.CreateComment(comment)
 	if err != nil {
-		log.Printf("error creating comment: %v", err) // ← добавь это
+		log.Printf("error creating comment: %v", err)
 		http.Error(w, "Failed to create comment", http.StatusInternalServerError)
 		return
 	}
 
-	// Формируем ответ с нужными полями
 	response := CreateCommentResponse{
 		ID:         createdComment.ID,
 		UserAvatar: createdComment.UserAvatar,
