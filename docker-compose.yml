@@ -13,8 +13,10 @@ services:
       DB_PASSWORD: latte
       DB_NAME: frappuccino
       DB_PORT: 5432
+      S3_ENDPOINT: http://triple-s:9000
     depends_on:
       - db
+      - triple-s
 
   db:
     image: postgres:15
@@ -24,3 +26,11 @@ services:
       POSTGRES_DB: frappuccino
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  triple-s:
+    build:
+      context: ./triple-s
+    ports:
+     - "9000:9000"
+    volumes:
+     - ./triple-s/data:/data

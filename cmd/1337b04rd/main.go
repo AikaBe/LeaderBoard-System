@@ -35,6 +35,9 @@ func main() {
 		http.ServeFile(w, r, filepath.Join("web", "templates", "catalog.html"))
 	})))
 	// mux.HandleFunc("/chat", middleware.LoginOrLastVisitHandler)
+	mux.Handle("/create-post", middleware.LoginOrLastVisitHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, filepath.Join("web", "templates", "create-post.html"))
+	})))
 
 	// Запуск сервера
 	log.Println("Сервер работает на порту 8080...")
