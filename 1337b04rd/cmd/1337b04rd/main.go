@@ -1,6 +1,7 @@
 package main
 
 import (
+	"1337b04rd/internal/adapters/api"
 	d "1337b04rd/internal/adapters/database"
 	"1337b04rd/internal/app/domain/ports"
 	"1337b04rd/internal/app/domain/services"
@@ -13,30 +14,33 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func initRepository(dsn string) (ports.PostRepository, ports.CommentRepository, *sql.DB, error) {
+func initRepository(dsn string) (ports.PostRepository, ports.CommentRepository, ports.SessionRepository, *sql.DB, error) {
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("error connecting to database: %v", err)
+		return nil, nil, nil, nil, fmt.Errorf("error connecting to database: %v", err)
 	}
 
 	postRepo := d.NewPostRepositoryPg(db)
 	commentRepo := d.NewCommentRepositoryPg(db)
 
-	return postRepo, commentRepo, db, nil
+	// ✅ Используем InMemorySessionRepo вместо PostgreSQL
+	sessionRepo := &api.InMemorySessionRepo{}
+
+	return postRepo, commentRepo, sessionRepo, db, nil
 }
 
 func main() {
 	// DSN строка подключения
 	dsn := "host=db port=5432 user=board_user password=board_pass dbname=board_db sslmode=disable"
 
-	postRepo, commentRepo, db, err := initRepository(dsn)
+	postRepo, commentRepo, sessionRepo, db, err := initRepository(dsn)
 	if err != nil {
 		log.Fatalf("Ошибка инициализации репозитория: %v", err)
 	}
 	defer db.Close()
 
 	// Сервисы
-	postService := services.NewPostService(postRepo)
+	postService := services.NewPostService(postRepo, sessionRepo)
 	commentService := services.NewCommentService(commentRepo)
 
 	// Хэндлеры
