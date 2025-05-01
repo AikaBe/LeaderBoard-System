@@ -24,32 +24,31 @@ func NewPostHandler(postService *services.PostService) *PostHandler {
 }
 
 func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Title     string `json:"title"`
-		Text      string `json:"text"`
-		SessionID string `json:"sessionID"`
-	}
-
-	// Сначала извлекай JSON-часть тела (title, text, sessionID)
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	// Сначала извлечь поля формы
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
 		return
 	}
 
-	// После этого вызывай адаптер, чтобы загрузить картинку и получить URL
+	title := r.FormValue("subject")
+	text := r.FormValue("comment")
+	sessionID := r.FormValue("name")
+
+	// Загрузка картинки — вся логика внутри адаптера
 	imageURL, err := h.S3Adapter.UploadImage(r)
 	if err != nil {
 		http.Error(w, "Image upload failed", http.StatusInternalServerError)
 		return
 	}
 
-	// Вызываем сервис с полученным URL картинки
-	createdPost, err := h.PostService.CreatePost(input.SessionID, input.Title, input.Text, imageURL)
+	// Создание поста
+	createdPost, err := h.PostService.CreatePost(sessionID, title, text, imageURL)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to create post", http.StatusInternalServerError)
 		return
 	}
 
+	// Успешный ответ
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(createdPost)

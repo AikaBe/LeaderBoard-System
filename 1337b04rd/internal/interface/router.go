@@ -13,31 +13,23 @@ import (
 
 // SetupRoutes конфигурирует маршруты для HTTP-сервера
 func SetupRoutes() {
-	// Создаем подключение к базе данных
 	db, err := sql.Open("postgres", "user=username password=password dbname=yourdb sslmode=disable")
 	if err != nil {
-		log.Fatal("Error opening database: ", err)
+		log.Fatal("DB connection error:", err)
 	}
+	defer db.Close()
 
-	// Проверка подключения к базе данных
 	if err := db.Ping(); err != nil {
-		log.Fatal("Error pinging database: ", err)
+		log.Fatal("Ping DB error:", err)
 	}
 
-	// Создаем репозиторий
 	postRepo := database.NewPostRepositoryPg(db)
+	postService := services.NewPostService(postRepo)
+	s3Adapter := s3.NewS3Adapter("./images")
 
-	// Создаем сервис для работы с постами
-	postService := services.NewPostService(postRepo, nil) // Замените nil на репозиторий сессий, если нужно
+	postHandler := handlers.NewPostHandler(postService, s3Adapter)
 
-	// Создаем хэндлер для обработки запросов
-	postHandler := handlers.NewPostHandler(postService)
-
-	// Настройка маршрутов
 	http.HandleFunc("/submit-post", postHandler.CreatePost)
-	// Здесь можно добавить другие маршруты
-	http.HandleFunc("/catalog", postHandler.GetAllPosts)
-
-	// Запуск сервера
+	log.Println("Server listening at :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
