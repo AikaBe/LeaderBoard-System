@@ -5,6 +5,7 @@ import (
 	"1337b04rd/internal/app/domain/services"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"time"
 )
@@ -111,13 +112,20 @@ func (h *PostHandler) DeletePost(w http.ResponseWriter, r *http.Request) {
 func (h *PostHandler) GetAllPosts(w http.ResponseWriter, r *http.Request) {
 	posts, err := h.PostService.GetAllPosts()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to get posts", http.StatusInternalServerError)
 		return
 	}
 
-	// Возвращаем список постов в формате JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(posts)
+	tmpl, err := template.ParseFiles("1337b04rd/web/templates/catalog.html") // путь к твоему HTML-шаблону
+	if err != nil {
+		http.Error(w, "Template parsing error", http.StatusInternalServerError)
+		return
+	}
+
+	err = tmpl.Execute(w, posts)
+	if err != nil {
+		http.Error(w, "Template execution error", http.StatusInternalServerError)
+	}
 }
 
 // Запланированное удаление поста
