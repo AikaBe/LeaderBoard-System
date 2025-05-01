@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"1337b04rd/internal/app/domain/ports"
 	"1337b04rd/internal/app/domain/services"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 // PostHandler представляет структуру для работы с HTTP-запросами для постов
 type PostHandler struct {
 	PostService *services.PostService
+	S3Adapter   ports.S3Adapter
 }
 
 // Новый конструктор для создания нового PostHandler
@@ -24,17 +26,24 @@ func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Title     string `json:"title"`
 		Text      string `json:"text"`
-		ImageURL  string `json:"imageURL"`
 		SessionID string `json:"sessionID"`
 	}
 
+	// Сначала извлекай JSON-часть тела (title, text, sessionID)
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Вызываем сервис, который сам достанет имя и аватар из сессии
-	createdPost, err := h.PostService.CreatePost(input.SessionID, input.Title, input.Text, input.ImageURL)
+	// После этого вызывай адаптер, чтобы загрузить картинку и получить URL
+	imageURL, err := h.S3Adapter.UploadImage(r)
+	if err != nil {
+		http.Error(w, "Image upload failed", http.StatusInternalServerError)
+		return
+	}
+
+	// Вызываем сервис с полученным URL картинки
+	createdPost, err := h.PostService.CreatePost(input.SessionID, input.Title, input.Text, imageURL)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
