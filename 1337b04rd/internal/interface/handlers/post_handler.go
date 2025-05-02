@@ -5,7 +5,6 @@ import (
 	"1337b04rd/internal/app/domain/services"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"net/http"
 	"time"
 )
@@ -17,9 +16,10 @@ type PostHandler struct {
 }
 
 // Новый конструктор для создания нового PostHandler
-func NewPostHandler(postService *services.PostService) *PostHandler {
+func NewPostHandler(postService *services.PostService, s3Adapter ports.S3Adapter) *PostHandler {
 	return &PostHandler{
 		PostService: postService,
+		S3Adapter:   s3Adapter,
 	}
 }
 
@@ -111,20 +111,13 @@ func (h *PostHandler) DeletePost(w http.ResponseWriter, r *http.Request) {
 func (h *PostHandler) GetAllPosts(w http.ResponseWriter, r *http.Request) {
 	posts, err := h.PostService.GetAllPosts()
 	if err != nil {
-		http.Error(w, "Failed to get posts", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	tmpl, err := template.ParseFiles("1337b04rd/web/templates/catalog.html") // путь к твоему HTML-шаблону
-	if err != nil {
-		http.Error(w, "Template parsing error", http.StatusInternalServerError)
-		return
-	}
-
-	err = tmpl.Execute(w, posts)
-	if err != nil {
-		http.Error(w, "Template execution error", http.StatusInternalServerError)
-	}
+	// Возвращаем список постов в формате JSON
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(posts)
 }
 
 // Запланированное удаление поста

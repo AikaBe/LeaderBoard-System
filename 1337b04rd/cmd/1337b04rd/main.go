@@ -1,14 +1,18 @@
 package main
 
 import (
+	"1337b04rd/internal/adapters/database"
 	d "1337b04rd/internal/adapters/database"
+	"1337b04rd/internal/adapters/s3"
 	"1337b04rd/internal/app/domain/ports"
 	"1337b04rd/internal/app/domain/services"
 	"1337b04rd/internal/interface/handlers"
+	"1337b04rd/internal/interface/middleware"
 	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 
 	_ "github.com/lib/pq" // Импортируем драйвер PostgreSQL
 )
@@ -26,8 +30,8 @@ func initRepository(dsn string) (ports.PostRepository, ports.CommentRepository, 
 }
 
 func main() {
-	// DSN строка подключения
-	dsn := "host=db port=5432 user=latte password=latte dbname=frappuccino sslmode=disable"
+	// Database DSN
+	dsn := "host=db port=5432 user=board_user password=board_pass dbname=board_db sslmode=disable"
 
 	postRepo, commentRepo, db, err := initRepository(dsn)
 	if err != nil {
@@ -35,29 +39,44 @@ func main() {
 	}
 	defer db.Close()
 
-	// Сервисы
-	postService := services.NewPostService(postRepo, nil)
-	commentService := services.NewCommentService(commentRepo)
+	// Создание необходимых сервисов
 
-	// Хэндлеры
-	postHandler := handlers.NewPostHandler(postService)
+	commentService := services.NewCommentService(commentRepo)
+	sessionRepo := &database.PostgresSessionRepo{DB: db}
+	sessionService := services.NewSessionService(sessionRepo)
+	postService := services.NewPostService(postRepo, sessionRepo)
+
+	s3Adapter := &s3.Adapter{
+		TripleSBaseURL: "http://triple-s:9000",
+	}
+
+	// Передаём адаптер в хэндлер
+	postHandler := handlers.NewPostHandler(postService, s3Adapter)
 	commentHandler := handlers.NewCommentHandler(commentService)
 
-	// HTTP роутинг
+	// Роутинг
 	mux := http.NewServeMux()
 
-	// Роуты для постов
-	mux.HandleFunc("/posts", postHandler.GetAllPosts)      // Получение всех постов
-	mux.HandleFunc("/create-post", postHandler.CreatePost) // Создание нового поста
+	// Статические файлы
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./web/templates"))))
 
-	// Роуты для комментариев
-	mux.HandleFunc("/comments", commentHandler.CreateComment) // Создание нового комментария
+	authMiddleware := middleware.AuthMiddleware{SessionService: sessionService}
+	// Главная страница
+	mux.Handle("/", authMiddleware.LoginOrLastVisitHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, filepath.Join("web", "templates", "catalog.html"))
+	})))
+
+	// Посты
+	mux.HandleFunc("/posts", postHandler.GetAllPosts)
+	mux.HandleFunc("/create-post", postHandler.CreatePost)
+
+	// Комментарии
+	mux.HandleFunc("/comments", commentHandler.CreateComment)
 
 	// Запуск сервера
 	log.Println("Сервер работает на порту 8080...")
-	err = http.ListenAndServe(":8080", mux)
-	if err != nil {
-		log.Fatal("Ошибка при запуске сервера: ", err)
+	if err := http.ListenAndServe(":8080", mux); err != nil {
+		log.Fatalf("Ошибка при запуске сервера: %v", err)
 	}
 }
 

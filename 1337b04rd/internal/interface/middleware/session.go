@@ -7,7 +7,9 @@ import (
 	"time"
 )
 
-var sessionService = services.NewSessionService(&api.InMemorySessionRepo{})
+type AuthMiddleware struct {
+	SessionService *services.SessionService
+}
 
 func getCookieValue(r *http.Request, cookieName string) (string, error) {
 	cookie, err := r.Cookie(cookieName)
@@ -17,17 +19,17 @@ func getCookieValue(r *http.Request, cookieName string) (string, error) {
 	return cookie.Value, nil
 }
 
-func LoginOrLastVisitHandler(next http.Handler) http.Handler {
+func (am *AuthMiddleware) LoginOrLastVisitHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sessionId, _ := getCookieValue(r, "sessionId")
+		sessionId, err := getCookieValue(r, "sessionId")
 
-		if sessionId == "" {
+		if sessionId == "" || err != nil {
 			character, err := api.GetNextCharacter()
 			if err != nil {
 				http.Error(w, "error with character!", http.StatusInternalServerError)
 				return
 			}
-			sessionId = sessionService.CreateOrUpdateSession("", character.Name, character.Image)
+			sessionId = am.SessionService.CreateOrUpdateSession("", character.Name, character.Image)
 			http.SetCookie(w, &http.Cookie{
 				Name:     "sessionId",
 				Value:    sessionId,
@@ -36,14 +38,13 @@ func LoginOrLastVisitHandler(next http.Handler) http.Handler {
 				HttpOnly: true,
 			})
 		} else {
-			userData, ok := sessionService.GetUserData(sessionId)
+			userData, ok := am.SessionService.GetUserData(sessionId)
 			if !ok {
 				http.Error(w, "Session not found", http.StatusNotFound)
 				return
 			}
-
 			userData.LastVisit = time.Now().Format(time.RFC3339)
-			sessionService.CreateOrUpdateSession(sessionId, userData.Name, userData.Avatar)
+			am.SessionService.CreateOrUpdateSession(sessionId, userData.Name, userData.Avatar)
 		}
 		next.ServeHTTP(w, r)
 	})

@@ -6,6 +6,12 @@ CREATE TABLE users (
     last_visit TIMESTAMP
 );
 
+CREATE TABLE sessions (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    avatar TEXT,
+    last_visit TIMESTAMP
+);
 -- Таблица постов
 CREATE TABLE posts (
     id SERIAL PRIMARY KEY,  -- Автоинкремент

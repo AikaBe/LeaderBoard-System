@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 )
 
 type Adapter struct {
-	TripleSBaseURL string // например: http://triple-s:9090
+	TripleSBaseURL string
 }
 
 func NewAdapter(baseURL string) *Adapter {
@@ -22,33 +23,78 @@ func (a *Adapter) UploadImage(r *http.Request) (string, error) {
 	}
 	defer file.Close()
 
-	// Считываем содержимое файла в память
+	bucketName := "images"
+
+	// Проверка: существует ли бакет с помощью GET
+	checkBucketURL := fmt.Sprintf("%s/%s", a.TripleSBaseURL, bucketName)
+	checkReq, err := http.NewRequest(http.MethodGet, checkBucketURL, nil)
+	if err != nil {
+		log.Printf("failed to create bucket check request:%v", err)
+		return "", fmt.Errorf("failed to create bucket check request: %w", err)
+	}
+
+	checkResp, err := http.DefaultClient.Do(checkReq)
+	if err != nil {
+		log.Printf("failed to check bucket existence:%v", err)
+		return "", fmt.Errorf("failed to check bucket existence: %w", err)
+	}
+	checkResp.Body.Close()
+
+	// Если бакета нет (GET вернул 404) — создаем
+	if checkResp.StatusCode == http.StatusNotFound {
+		createReq, err := http.NewRequest(http.MethodPost, checkBucketURL, nil)
+		if err != nil {
+			log.Printf("failed to create bucket request:%v", err)
+			return "", fmt.Errorf("failed to create bucket request: %w", err)
+		}
+
+		createResp, err := http.DefaultClient.Do(createReq)
+		if err != nil {
+			log.Printf("failed to send bucket creation request:%v", err)
+			return "", fmt.Errorf("failed to send bucket creation request: %w", err)
+		}
+		defer createResp.Body.Close()
+
+		if createResp.StatusCode != http.StatusCreated && createResp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(createResp.Body)
+			log.Printf("bucket creation failed: %s", body)
+			return "", fmt.Errorf("bucket creation failed: %s", body)
+		}
+	}
+
+	// Считываем содержимое изображения в память
 	var buf bytes.Buffer
 	_, err = io.Copy(&buf, file)
 	if err != nil {
-		return "", err
+		log.Printf("failed to read file:%v", err)
+		return "", fmt.Errorf("failed to read file: %w", err)
 	}
 
-	// Сформировать URL: images/{photo}
-	uploadURL := fmt.Sprintf("%s/images/%s", a.TripleSBaseURL, header.Filename)
-
-	// Создать PUT-запрос с телом = содержимому файла
-	req, err := http.NewRequest(http.MethodPut, uploadURL, &buf)
+	// Загружаем изображение
+	uploadURL := fmt.Sprintf("%s/%s/%s", a.TripleSBaseURL, bucketName, header.Filename)
+	uploadReq, err := http.NewRequest(http.MethodPut, uploadURL, &buf)
 	if err != nil {
-		return "", err
+		log.Printf("failed to create upload request:%v", err)
+		return "", fmt.Errorf("failed to create upload request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/octet-stream")
+	uploadReq.Header.Set("Content-Type", "application/octet-stream")
 
-	// Отправить запрос
-	resp, err := http.DefaultClient.Do(req)
+	uploadResp, err := http.DefaultClient.Do(uploadReq)
 	if err != nil {
-		return "", err
+		log.Printf("failed to upload image:%v", err)
+		return "", fmt.Errorf("failed to upload image: %w", err)
 	}
-	defer resp.Body.Close()
+	defer uploadResp.Body.Close()
 
-	// Считать ответ от Triple-S
+	if uploadResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(uploadResp.Body)
+		log.Printf("upload failed: %s", body)
+		return "", fmt.Errorf("upload failed: %s", body)
+	}
+
 	respBuf := new(bytes.Buffer)
-	respBuf.ReadFrom(resp.Body)
+	respBuf.ReadFrom(uploadResp.Body)
+	log.Printf("image url: %s", uploadURL)
 
-	return respBuf.String(), nil // предполагается, что triple-s возвращает URL как текст
+	return respBuf.String(), nil
 }
