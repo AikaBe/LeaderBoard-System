@@ -5,6 +5,7 @@ import (
 	"1337b04rd/internal/app/domain/services"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 )
@@ -48,6 +49,7 @@ func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("Post created successfully: %v", createdPost)
 	// Успешный ответ
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
