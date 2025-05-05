@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}} - 1337b04rd</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #E6E9F5;
+        }
+
+        header {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        nav {
+            margin-top: 10px;
+        }
+
+        nav a {
+            margin: 0 10px;
+            text-decoration: none;
+            color: blue;
+        }
+
+        nav a:hover {
+            text-decoration: underline;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .post, .comments, .add-comment {
+            background-color: white;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .post .header, .comment .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 10px;
+        }
+
+        .post .header img, .comment .header img {
+            border-radius: 50%;
+        }
+
+        .post .content {
+            margin-top: 20px;
+        }
+
+        .post .content img {
+            max-width: 100%;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+
+        .text {
+            white-space: pre-wrap;
+        }
+
+        .comment {
+            border-bottom: 1px solid #eee;
+            padding: 15px 0;
+        }
+
+        .comment:last-child {
+            border-bottom: none;
+        }
+
+        .comment .content {
+            margin-top: 10px;
+        }
+
+        .comment .content img {
+    max-width: 150px; /* уменьшенный размер */
+    height: auto;
+    margin-bottom: 10px;
+    border-radius: 5px;
+}
+
+        .add-comment textarea {
+            width: 100%;
+            min-height: 100px;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            resize: vertical;
+        }
+
+        .add-comment form {
+            text-align: left;
+        }
+
+        .add-comment input[type="submit"] {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .add-comment input[type="submit"]:hover {
+            background-color: #45a049;
+        }
+
+        .meta-info {
+            color: #666;
+            font-size: 0.9em;
+            margin-left: 5px;
+        }
+
+        h1, h2, h3 {
+            margin: 10px 0;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .replies {
+            margin-left: 20px;
+            border-left: 2px solid #ccc;
+            padding-left: 20px;
+        }
+
+    </style>
+</head>
+<body>
+<header>
+    <h1>1337b04rd</h1>
+    <nav>
+        <a href="/posts">Catalog</a> |
+        <a href="/archive">Archive</a>
+    </nav>
+</header>
+<div class="container">
+    <!-- Main Post -->
+    <div class="post">
+        <div class="header">
+            <img src="{{.UserAvatar}}" alt="User Avatar" width="50px" height="50px">
+            <b>{{.UserName}}</b>
+            <span class="meta-info">{{.CreatedAt}} #{{.ID}}</span>
+        </div>
+        <div class="content">
+            {{if .ImageURL}}
+                <a href="{{.ImageURL}}">
+                    <img src="{{.ImageURL}}" alt="Post image">
+                </a>
+            {{else}}
+                <p>No image</p>
+            {{end}}
+            <div class="text">
+                <h3>{{.Title}}</h3>
+                <p>{{.Text}}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comments Section -->
+    <div class="comments">
+        <h2>Comments</h2>
+        {{if .Comments}}
+        <ul class="comment-list">
+            {{range .Comments}}
+            <li class="comment">
+                <div class="header">
+                    <img src="{{.UserAvatar}}" alt="User Avatar" width="40px" height="40px">
+                    <b>{{.UserName}}</b>
+                    <span class="meta-info">{{.CreatedAt}} #{{.ID}}</span>
+                </div>
+                <div class="content">
+                    {{if ne .ImageURL ""}}
+                        <a href="{{.ImageURL}}">
+                            <img src="{{.ImageURL}}" alt="Comment image">
+                        </a>
+                    {{end}}
+                    <div class="text">
+                        {{.Text}}
+                    </div>
+
+                    <!-- Reply link -->
+                    <a href="#" onclick="toggleReplyForm(`{{.ID}}`); return false;">Reply</a>
+
+                    <!-- Hidden reply form -->
+                    <form id="reply-form-{{.ID}}" action="/submit-comment" method="POST" enctype="multipart/form-data" style="display: none; margin-top: 10px;">
+                        <textarea name="comment" placeholder="Write your reply here..."></textarea>
+                        <input type="hidden" name="post_id" value="{{$.ID}}">
+                        <input type="hidden" name="parent_id" value="{{.ID}}">
+                        <br>
+                        <input type="submit" value="Reply">
+                    </form>
+                    
+                    <!-- Nested replies -->
+                    {{if .Replies}}
+                        <div class="replies">
+                            {{range .Replies}}
+    <div class="comment">
+        <div class="header">
+            <img src="{{.UserAvatar}}" alt="User Avatar" width="40px" height="40px">
+            <b>{{.UserName}}</b>
+            <span class="meta-info">{{.CreatedAt}} #{{.ID}}</span>
+        </div>
+        <div class="content">
+            {{if .ImageURL}}
+                <a href="{{.ImageURL}}">
+                    <img src="{{.ImageURL}}" alt="Reply image">
+                </a>
+            {{end}}
+            <div class="text">
+                {{.Text}}
+            </div>
+        </div>
+    </div>
+{{end}}
+                        </div>
+                    {{end}}
+                </div>
+            </li>
+            {{end}}
+        </ul>
+        {{else}}
+        <p>No comments yet.</p>
+        {{end}}
+    </div>
+
+    <!-- Add a Comment Section -->
+    <div class="add-comment">
+        <h3>Add a Comment</h3>
+        <form action="/submit-comment" method="POST" enctype="multipart/form-data">
+            <textarea name="comment" placeholder="Write your comment here..."></textarea>
+            <div>
+                <label for="file">File:</label>
+                <input name="image" type="file" id="file">
+            </div>
+            <br>
+            <input type="hidden" name="post_id" value="{{.ID}}">
+            <input type="submit" value="Submit">
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleReplyForm(commentId) {
+        const form = document.getElementById(`reply-form-${commentId}`);
+        if (form.style.display === "none") {
+            form.style.display = "block";
+        } else {
+            form.style.display = "none";
+        }
+    }
+</script>
+
+</body>
+</html>
