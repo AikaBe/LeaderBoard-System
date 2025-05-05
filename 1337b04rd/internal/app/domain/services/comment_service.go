@@ -1,12 +1,13 @@
 package services
 
 import (
-	"1337b04rd/internal/app/domain/models"
-	"1337b04rd/internal/app/domain/ports"
 	"errors"
 	"log/slog"
 	"strconv"
 	"time"
+
+	"1337b04rd/internal/app/domain/models"
+	"1337b04rd/internal/app/domain/ports"
 )
 
 // CommentService provides methods to work with comments.

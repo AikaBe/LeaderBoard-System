@@ -1,9 +1,10 @@
 package database
 
 import (
-	"1337b04rd/internal/app/domain/models"
 	"database/sql"
 	"log/slog"
+
+	"1337b04rd/internal/app/domain/models"
 )
 
 type PostgresSessionRepo struct {

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
 	"triple-s/config"
 )
 
@@ -63,9 +64,9 @@ func UploadObjectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//host := "triple-s"
-	//port := "9000"
-	//imageURL := fmt.Sprintf("http://%s:%s/images/%s", host, port, objectKey)
+	// host := "triple-s"
+	// port := "9000"
+	// imageURL := fmt.Sprintf("http://%s:%s/images/%s", host, port, objectKey)
 	imageURL := fmt.Sprintf("http://localhost:9000/%s/%s", bucketName, objectKey)
 
 	// Return JSON response with image URL

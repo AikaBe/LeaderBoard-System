@@ -1,10 +1,11 @@
 package api
 
 import (
-	"1337b04rd/internal/app/domain/models"
 	"database/sql"
 	"errors"
 	"log/slog"
+
+	"1337b04rd/internal/app/domain/models"
 )
 
 // DBSessionRepo represents a repository for handling session data.

@@ -1,12 +1,13 @@
 package database
 
 import (
-	"1337b04rd/internal/app/domain/models"
-	"1337b04rd/internal/app/domain/ports"
 	"database/sql"
 	"fmt"
 	"log/slog"
 	"strconv"
+
+	"1337b04rd/internal/app/domain/models"
+	"1337b04rd/internal/app/domain/ports"
 )
 
 // CommentRepositoryPg represents a repository for managing comments in PostgreSQL.

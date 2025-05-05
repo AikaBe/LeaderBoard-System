@@ -1,12 +1,13 @@
 package api
 
 import (
-	"1337b04rd/internal/app/domain/models"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"sync"
+
+	"1337b04rd/internal/app/domain/models"
 )
 
 var (

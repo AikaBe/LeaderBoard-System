@@ -1,11 +1,12 @@
 package services
 
 import (
-	"1337b04rd/internal/app/domain/models"
-	"1337b04rd/internal/app/domain/ports"
 	"fmt"
 	"log/slog"
 	"time"
+
+	"1337b04rd/internal/app/domain/models"
+	"1337b04rd/internal/app/domain/ports"
 )
 
 // PostService provides operations for managing posts.

@@ -1,12 +1,13 @@
 package middleware
 
 import (
-	"1337b04rd/internal/adapters/api"
-	"1337b04rd/internal/app/domain/services"
 	"context"
 	"log"
 	"net/http"
 	"time"
+
+	"1337b04rd/internal/adapters/api"
+	"1337b04rd/internal/app/domain/services"
 )
 
 type AuthMiddleware struct {

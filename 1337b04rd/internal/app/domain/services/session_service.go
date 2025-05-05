@@ -1,12 +1,13 @@
 package services
 
 import (
-	"1337b04rd/internal/app/domain/models"
-	"1337b04rd/internal/app/domain/ports"
 	"encoding/hex"
 	"log/slog"
 	"math/rand"
 	"time"
+
+	"1337b04rd/internal/app/domain/models"
+	"1337b04rd/internal/app/domain/ports"
 )
 
 // SessionService manages user sessions.

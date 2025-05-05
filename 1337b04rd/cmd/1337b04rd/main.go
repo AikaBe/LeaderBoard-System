@@ -1,6 +1,11 @@
 package main
 
 import (
+	"database/sql"
+	"log/slog"
+	"net/http"
+	"os"
+
 	"1337b04rd/internal/adapters/database"
 	d "1337b04rd/internal/adapters/database"
 	"1337b04rd/internal/adapters/s3"
@@ -9,10 +14,6 @@ import (
 	"1337b04rd/internal/interface/handlers"
 	"1337b04rd/internal/interface/middleware"
 	"1337b04rd/internal/interface/routes"
-	"database/sql"
-	"log/slog"
-	"net/http"
-	"os"
 
 	_ "github.com/lib/pq"
 )

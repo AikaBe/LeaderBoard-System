@@ -1,9 +1,10 @@
 package routes
 
 import (
+	"net/http"
+
 	"1337b04rd/internal/interface/handlers"
 	"1337b04rd/internal/interface/middleware"
-	"net/http"
 )
 
 func RegisterRoutes(mux *http.ServeMux, postHandler *handlers.PostHandler, commentHandler *handlers.CommentHandler, authMiddleware middleware.AuthMiddleware) {

@@ -1,7 +1,6 @@
 package s3_test
 
 import (
-	"1337b04rd/internal/adapters/s3"
 	"bytes"
 	"io"
 	"mime/multipart"
@@ -9,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"1337b04rd/internal/adapters/s3"
 )
 
 func TestUploadImage_Success(t *testing.T) {

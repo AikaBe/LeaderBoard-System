@@ -1,13 +1,14 @@
 package handlers
 
 import (
-	"1337b04rd/internal/app/domain/ports"
-	"1337b04rd/internal/app/domain/services"
 	"bytes"
 	"html/template"
 	"log/slog"
 	"net/http"
 	"strings"
+
+	"1337b04rd/internal/app/domain/ports"
+	"1337b04rd/internal/app/domain/services"
 )
 
 type PostHandler struct {
