@@ -22,6 +22,7 @@ CREATE TABLE posts (
     image_url TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP,
     is_hidden BOOLEAN DEFAULT FALSE
 );
 
@@ -33,5 +34,6 @@ CREATE TABLE comments (
     user_name TEXT NOT NULL,  -- Имя пользователя
     user_avatar TEXT,         -- Аватар пользователя
     text TEXT NOT NULL,
+    image_url TEXT,   
     created_at TIMESTAMP NOT NULL DEFAULT now()
 );

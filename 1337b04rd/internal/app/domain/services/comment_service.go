@@ -4,46 +4,75 @@ import (
 	"1337b04rd/internal/app/domain/models"
 	"1337b04rd/internal/app/domain/ports"
 	"errors"
+	"log/slog"
+	"strconv"
 	"time"
 )
 
-// Структура для CommentService
+// CommentService provides methods to work with comments.
 type CommentService struct {
 	CommentRepo ports.CommentRepository
 }
 
-// Конструктор для CommentService
+// NewCommentService creates a new instance of CommentService.
 func NewCommentService(repo ports.CommentRepository) *CommentService {
 	return &CommentService{
 		CommentRepo: repo,
 	}
 }
 
-// Метод для создания комментария
-
+// CreateComment validates and creates a new comment.
 func (s *CommentService) CreateComment(comment models.Comment) (*models.Comment, error) {
-	if comment.PostID == "" || comment.UserName == "" || comment.Text == "" {
+	if comment.PostID == 0 || comment.UserName == "" || comment.Text == "" {
+		slog.Warn("Missing required fields in comment creation", "PostID", comment.PostID, "UserName", comment.UserName, "Text", comment.Text)
 		return nil, errors.New("missing required fields (PostID, UserName, Text)")
 	}
 
-	// Установим дату, если не пришла
 	if comment.CreatedAt.IsZero() {
 		comment.CreatedAt = time.Now()
 	}
 
-	return s.CommentRepo.CreateComment(comment)
+	createdComment, err := s.CommentRepo.CreateComment(comment)
+	if err != nil {
+		slog.Error("Failed to create comment", "error", err)
+		return nil, err
+	}
+
+	slog.Info("Comment created successfully", "CommentID", createdComment.ID)
+	return createdComment, nil
 }
 
-func (s *CommentService) GetCommentsByPostID(postID string) ([]*models.Comment, error) {
-	if postID == "" {
+// GetCommentsByPostID returns all comments associated with a specific post ID.
+func (s *CommentService) GetCommentsByPostID(postID int) ([]*models.Comment, error) {
+	if postID == 0 {
+		slog.Warn("Invalid post ID provided for comment retrieval")
 		return nil, errors.New("invalid PostID")
 	}
-	return s.CommentRepo.GetCommentsByPostID(postID)
+
+	comments, err := s.CommentRepo.GetCommentsByPostID(postID)
+	if err != nil {
+		slog.Error("Failed to retrieve comments", "PostID", postID, "error", err)
+		return nil, err
+	}
+
+	slog.Info("Comments retrieved successfully", "PostID", postID, "Count", len(comments))
+	return comments, nil
 }
 
-func (s *CommentService) DeleteComment(commentID string) error {
-	if commentID == "" {
+// DeleteComment deletes a comment by its ID.
+func (s *CommentService) DeleteComment(commentID int) error {
+	if commentID == 0 {
+		slog.Warn("Invalid comment ID provided for deletion")
 		return errors.New("invalid CommentID")
 	}
-	return s.CommentRepo.DeleteComment(commentID)
+
+	commentIDString := strconv.Itoa(commentID)
+	err := s.CommentRepo.DeleteComment(commentIDString)
+	if err != nil {
+		slog.Error("Failed to delete comment", "CommentID", commentID, "error", err)
+		return err
+	}
+
+	slog.Info("Comment deleted successfully", "CommentID", commentID)
+	return nil
 }

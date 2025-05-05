@@ -3,132 +3,171 @@ package handlers
 import (
 	"1337b04rd/internal/app/domain/ports"
 	"1337b04rd/internal/app/domain/services"
-	"encoding/json"
-	"fmt"
-	"log"
+	"bytes"
+	"html/template"
+	"log/slog"
 	"net/http"
-	"time"
+	"strings"
 )
 
-// PostHandler представляет структуру для работы с HTTP-запросами для постов
 type PostHandler struct {
-	PostService *services.PostService
-	S3Adapter   ports.S3Adapter
+	PostService    *services.PostService
+	S3Adapter      ports.S3Adapter
+	CommentService ports.CommentService
 }
 
-// Новый конструктор для создания нового PostHandler
-func NewPostHandler(postService *services.PostService, s3Adapter ports.S3Adapter) *PostHandler {
+func NewPostHandler(postService *services.PostService, s3Adapter ports.S3Adapter, commentService ports.CommentService) *PostHandler {
 	return &PostHandler{
-		PostService: postService,
-		S3Adapter:   s3Adapter,
+		PostService:    postService,
+		S3Adapter:      s3Adapter,
+		CommentService: commentService,
 	}
 }
 
-func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
-	// Сначала извлечь поля формы
+func (h *PostHandler) ServeCreatePostForm(w http.ResponseWriter, r *http.Request) {
+	tmpl := template.Must(template.ParseFiles("web/templates/create-post.html"))
+	tmpl.Execute(w, nil)
+}
+
+func (h *PostHandler) SubmitPost(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		slog.Error("Failed to parse form", "error", err)
 		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	sessionIDRaw := r.Context().Value("sessionId")
+	sessionID, ok := sessionIDRaw.(string)
+	if !ok || sessionID == "" {
+		slog.Warn("Unauthorized access: missing or invalid sessionId")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	title := r.FormValue("subject")
 	text := r.FormValue("comment")
-	sessionID := r.FormValue("name")
 
-	// Загрузка картинки — вся логика внутри адаптера
-	imageURL, err := h.S3Adapter.UploadImage(r)
+	imageURL, err := h.S3Adapter.UploadImage(r, "post")
 	if err != nil {
+		slog.Error("Image upload failed", "error", err)
 		http.Error(w, "Image upload failed", http.StatusInternalServerError)
 		return
 	}
 
-	// Создание поста
 	createdPost, err := h.PostService.CreatePost(sessionID, title, text, imageURL)
 	if err != nil {
+		slog.Error("Failed to create post", "error", err)
 		http.Error(w, "Failed to create post", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("Post created successfully: %v", createdPost)
-	// Успешный ответ
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(createdPost)
+	slog.Info("Post created", "post_id", createdPost.ID)
+	http.Redirect(w, r, "/create", http.StatusSeeOther)
 }
 
-// Метод для обработки обновления имени пользователя в посте
-func (h *PostHandler) UpdateUserName(w http.ResponseWriter, r *http.Request) {
-	// Получаем ID поста из URL
-	postID := r.URL.Query().Get("postID")
-	if postID == "" {
-		http.Error(w, "Missing postID in URL", http.StatusBadRequest)
-		return
-	}
-
-	var request struct {
-		NewUserName string `json:"newUserName"`
-	}
-
-	// Декодируем новое имя пользователя из тела запроса
-	err := json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	// Обновляем имя пользователя в посте и комментариях
-	err = h.PostService.UpdateUserName(postID, request.NewUserName)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Возвращаем успешный ответ
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("User name updated successfully"))
-}
-
-// Метод для обработки удаления поста
-func (h *PostHandler) DeletePost(w http.ResponseWriter, r *http.Request) {
-	// Получаем ID поста из URL
-	postID := r.URL.Query().Get("postID")
-	if postID == "" {
-		http.Error(w, "Missing postID in URL", http.StatusBadRequest)
-		return
-	}
-
-	// Удаляем пост через сервис
-	err := h.PostService.DeletePost(postID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Возвращаем успешный ответ
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Post deleted successfully"))
-}
-
-// Метод для обработки запроса получения всех постов
 func (h *PostHandler) GetAllPosts(w http.ResponseWriter, r *http.Request) {
 	posts, err := h.PostService.GetAllPosts()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		slog.Error("Failed to fetch posts", "error", err)
+		http.Error(w, "Failed to fetch posts", http.StatusInternalServerError)
 		return
 	}
 
-	// Возвращаем список постов в формате JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(posts)
+	tmpl := template.Must(template.ParseFiles("web/templates/catalog.html"))
+	if err := tmpl.Execute(w, posts); err != nil {
+		slog.Error("Failed to render catalog template", "error", err)
+		http.Error(w, "Failed to render posts", http.StatusInternalServerError)
+	}
 }
 
-// Запланированное удаление поста
-func (h *PostHandler) schedulePostDeletion(postID string, delay time.Duration) {
-	time.Sleep(delay)
-	// Делаем попытку удалить пост после задержки
-	err := h.PostService.DeletePost(postID)
-	if err != nil {
-		// Логируем ошибку, если не удалось удалить пост
-		fmt.Println("Failed to delete post:", err)
+func (h *PostHandler) GetPostByID(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimPrefix(r.URL.Path, "/post/")
+	if id == "" {
+		http.Error(w, "Missing post ID", http.StatusBadRequest)
+		return
 	}
+
+	post, err := h.PostService.GetPostByID(id)
+	if err != nil {
+		slog.Error("Failed to fetch post by ID", "post_id", id, "error", err)
+		http.Error(w, "Failed to fetch post", http.StatusInternalServerError)
+		return
+	}
+	if post == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	comments, err := h.CommentService.GetCommentsByPostID(post.ID)
+	if err != nil {
+		slog.Error("Failed to load comments", "post_id", post.ID, "error", err)
+		http.Error(w, "Error loading comments", http.StatusInternalServerError)
+		return
+	}
+	post.Comments = comments
+
+	tmpl := template.Must(template.ParseFiles("web/templates/post.html"))
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, post); err != nil {
+		slog.Error("Failed to render post template", "post_id", post.ID, "error", err)
+		http.Error(w, "Template error", http.StatusInternalServerError)
+		return
+	}
+	buf.WriteTo(w)
+}
+
+func (h *PostHandler) GetArchivedPostsHandler(w http.ResponseWriter, r *http.Request) {
+	posts, err := h.PostService.GetArchivedPosts()
+	if err != nil {
+		slog.Error("Failed to fetch archived posts", "error", err)
+		http.Error(w, "Failed to fetch archived posts", http.StatusInternalServerError)
+		return
+	}
+
+	tmpl := template.Must(template.ParseFiles("web/templates/archive.html"))
+	if err := tmpl.Execute(w, posts); err != nil {
+		slog.Error("Failed to render archive template", "error", err)
+		http.Error(w, "Failed to render posts", http.StatusInternalServerError)
+	}
+}
+
+func (h *PostHandler) GetArchivedPostByID(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimPrefix(r.URL.Path, "/archived/post/")
+	if id == "" {
+		http.Error(w, "Missing post ID", http.StatusBadRequest)
+		return
+	}
+
+	post, err := h.PostService.GetArchivedPostByID(id)
+	if err != nil {
+		slog.Error("Failed to fetch archived post", "post_id", id, "error", err)
+		http.Error(w, "Failed to fetch archived post", http.StatusInternalServerError)
+		return
+	}
+	if post == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	comments, err := h.CommentService.GetCommentsByPostID(post.ID)
+	if err != nil {
+		slog.Error("Failed to load archived comments", "post_id", post.ID, "error", err)
+		http.Error(w, "Error loading comments", http.StatusInternalServerError)
+		return
+	}
+	post.Comments = comments
+
+	tmpl := template.Must(template.ParseFiles("web/templates/archive-post.html"))
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, post); err != nil {
+		slog.Error("Failed to render archived post template", "post_id", post.ID, "error", err)
+		http.Error(w, "Template error", http.StatusInternalServerError)
+		return
+	}
+	buf.WriteTo(w)
 }

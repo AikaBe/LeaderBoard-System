@@ -5,11 +5,13 @@ import (
 )
 
 type Comment struct {
-	ID         int       `json:"id"`         // Уникальный ID комментария
-	PostID     string    `json:"postID"`     // ID поста, к которому относится комментарий
-	ParentID   *string   `json:"parentID"`   // ID родительского комментария (если nil — это ответ на пост)
-	UserName   string    `json:"userName"`   // Имя пользователя
-	UserAvatar string    `json:"userAvatar"` // Аватар пользователя
-	Text       string    `json:"text"`       // Текст комментария
-	CreatedAt  time.Time `json:"createdAt"`  // Дата и время создания
+	ID              int        `json:"id"`
+	PostID          int        `json:"post_id"`
+	ParentCommentID *int       `json:"parent_comment_id"` // Может быть NULL
+	UserName        string     `json:"user_name"`
+	UserAvatar      string     `json:"user_avatar"`
+	Text            string     `json:"text"`
+	ImageURL        string     `json:"image_url,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+	Replies         []*Comment `json:"replies"`
 }

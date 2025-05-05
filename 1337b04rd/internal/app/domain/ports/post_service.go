@@ -6,6 +6,6 @@ import "1337b04rd/internal/app/domain/models"
 // Интерфейс сервиса для работы с постами
 type PostService interface {
 	CreatePost(title, text, userID string, userName, userAvatar, imageURL string) (*models.Post, error)
-	UpdateUserName(postID, newUserName string) error
-	IsPostExpired(post *models.Post) bool
+	GetPostByID(id string) (*models.Post, error)
+	GetArchivedPostByID(id string) (*models.Post, error)
 }

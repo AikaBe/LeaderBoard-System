@@ -4,17 +4,20 @@ import (
 	"1337b04rd/internal/app/domain/models"
 	"database/sql"
 	"errors"
-	"log"
+	"log/slog"
 )
 
+// DBSessionRepo represents a repository for handling session data.
 type DBSessionRepo struct {
 	DB *sql.DB
 }
 
+// NewDBSessionRepo creates a new instance of DBSessionRepo.
 func NewDBSessionRepo(db *sql.DB) *DBSessionRepo {
 	return &DBSessionRepo{DB: db}
 }
 
+// GetSessionData retrieves the session data for the given session ID.
 func (r *DBSessionRepo) GetSessionData(sessionID string) (models.UserData, bool) {
 	var data models.UserData
 	query := `SELECT name, avatar FROM sessions WHERE session_id = $1`
@@ -23,15 +26,21 @@ func (r *DBSessionRepo) GetSessionData(sessionID string) (models.UserData, bool)
 	err := row.Scan(&data.Name, &data.Avatar)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			// No session found, log this case
+			slog.Info("No session found", "sessionID", sessionID)
 			return models.UserData{}, false
 		}
-		log.Println("error retrieving session data:", err)
+		// Log error retrieving session data
+		slog.Error("Error retrieving session data", "sessionID", sessionID, "error", err)
 		return models.UserData{}, false
 	}
 
+	// Successfully retrieved session data
+	slog.Info("Successfully retrieved session data", "sessionID", sessionID, "name", data.Name)
 	return data, true
 }
 
+// SetSessionData stores session data for a given session ID.
 func (r *DBSessionRepo) SetSessionData(sessionID string, data models.UserData) error {
 	query := `
 		INSERT INTO sessions (session_id, name, avatar)
@@ -41,7 +50,10 @@ func (r *DBSessionRepo) SetSessionData(sessionID string, data models.UserData) e
 	`
 	_, err := r.DB.Exec(query, sessionID, data.Name, data.Avatar)
 	if err != nil {
-		log.Println("error saving session data:", err)
+		// Log error saving session data
+		slog.Error("Error saving session data", "sessionID", sessionID, "error", err)
 	}
+	// Log successful save operation
+	slog.Info("Session data saved or updated", "sessionID", sessionID)
 	return err
 }

@@ -2,12 +2,12 @@ package handlers
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 )
 
 func SetCookie(w http.ResponseWriter, r *http.Request) {
-	// create cookie
 	cookie := &http.Cookie{
 		Name:     "ID",
 		Value:    "John",
@@ -15,20 +15,22 @@ func SetCookie(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 	}
 
-	// set the cookie as an answer
 	http.SetCookie(w, cookie)
 
-	fmt.Fprintf(w, "Cookie 'Expires' installed: %s", cookie.Expires)
+	slog.Info("Cookie set", "name", cookie.Name, "value", cookie.Value, "expires", cookie.Expires)
+
+	fmt.Fprintf(w, "Cookie 'ID' set with expiration: %s", cookie.Expires)
 }
 
 func GetCookie(w http.ResponseWriter, r *http.Request) {
-	// read cookie
 	cookie, err := r.Cookie("ID")
 	if err != nil {
+		slog.Warn("Cookie not found", "name", "ID", "error", err)
 		http.Error(w, "Cookie not found", http.StatusNotFound)
 		return
 	}
 
-	// return the answer
-	fmt.Fprintf(w, "Cookie 'ID' have the value : %s", cookie.Value)
+	slog.Info("Cookie retrieved", "name", cookie.Name, "value", cookie.Value)
+
+	fmt.Fprintf(w, "Cookie 'ID' has value: %s", cookie.Value)
 }

@@ -4,97 +4,115 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 )
 
 type Adapter struct {
-	TripleSBaseURL string
+	TripleSBaseURL  string
+	PublicAccessURL string
 }
 
-func NewAdapter(baseURL string) *Adapter {
-	return &Adapter{TripleSBaseURL: baseURL}
+// NewAdapter creates a new Adapter instance.
+func NewAdapter(internalURL, publicURL string) *Adapter {
+	return &Adapter{
+		TripleSBaseURL:  internalURL,
+		PublicAccessURL: publicURL,
+	}
 }
 
-func (a *Adapter) UploadImage(r *http.Request) (string, error) {
+// UploadImage uploads an image from the HTTP request to the appropriate bucket.
+// Returns the public URL of the uploaded image or an error.
+func (a *Adapter) UploadImage(r *http.Request, imageType string) (string, error) {
 	file, header, err := r.FormFile("image")
 	if err != nil {
+		if err == http.ErrMissingFile {
+			return "", nil
+		}
 		return "", err
 	}
 	defer file.Close()
 
+	// Determine bucket name based on image type
 	bucketName := "images"
+	switch imageType {
+	case "post":
+		bucketName = "post-images"
+	case "comment":
+		bucketName = "images"
+	default:
+		bucketName = "misc-images"
+	}
 
-	// Проверка: существует ли бакет с помощью GET
+	// Check if the bucket exists
 	checkBucketURL := fmt.Sprintf("%s/%s", a.TripleSBaseURL, bucketName)
 	checkReq, err := http.NewRequest(http.MethodGet, checkBucketURL, nil)
 	if err != nil {
-		log.Printf("failed to create bucket check request:%v", err)
-		return "", fmt.Errorf("failed to create bucket check request: %w", err)
+		slog.Error("Failed to create bucket check request", "error", err)
+		return "", err
 	}
-
 	checkResp, err := http.DefaultClient.Do(checkReq)
 	if err != nil {
-		log.Printf("failed to check bucket existence:%v", err)
-		return "", fmt.Errorf("failed to check bucket existence: %w", err)
+		slog.Error("Failed to check bucket existence", "error", err)
+		return "", err
 	}
-	checkResp.Body.Close()
+	defer checkResp.Body.Close()
 
-	// Если бакета нет (GET вернул 404) — создаем
+	// Create bucket if it doesn't exist
 	if checkResp.StatusCode == http.StatusNotFound {
-		createReq, err := http.NewRequest(http.MethodPost, checkBucketURL, nil)
-		if err != nil {
-			log.Printf("failed to create bucket request:%v", err)
-			return "", fmt.Errorf("failed to create bucket request: %w", err)
-		}
+		slog.Info("Bucket does not exist. Creating...", "bucket", bucketName)
 
+		createReq, err := http.NewRequest(http.MethodPut, checkBucketURL, nil)
+		if err != nil {
+			slog.Error("Failed to create bucket request", "error", err)
+			return "", err
+		}
 		createResp, err := http.DefaultClient.Do(createReq)
 		if err != nil {
-			log.Printf("failed to send bucket creation request:%v", err)
-			return "", fmt.Errorf("failed to send bucket creation request: %w", err)
+			slog.Error("Failed to send bucket creation request", "error", err)
+			return "", err
 		}
 		defer createResp.Body.Close()
 
 		if createResp.StatusCode != http.StatusCreated && createResp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(createResp.Body)
-			log.Printf("bucket creation failed: %s", body)
+			slog.Error("Bucket creation failed", "response", string(body))
 			return "", fmt.Errorf("bucket creation failed: %s", body)
 		}
+		slog.Info("Bucket created successfully", "bucket", bucketName)
 	}
 
-	// Считываем содержимое изображения в память
+	// Read the uploaded file into buffer
 	var buf bytes.Buffer
-	_, err = io.Copy(&buf, file)
-	if err != nil {
-		log.Printf("failed to read file:%v", err)
-		return "", fmt.Errorf("failed to read file: %w", err)
+	if _, err := io.Copy(&buf, file); err != nil {
+		slog.Error("Failed to read file", "error", err)
+		return "", err
 	}
 
-	// Загружаем изображение
+	// Upload the image to the bucket
 	uploadURL := fmt.Sprintf("%s/%s/%s", a.TripleSBaseURL, bucketName, header.Filename)
+	publicURL := fmt.Sprintf("%s/%s/%s", a.PublicAccessURL, bucketName, header.Filename)
+
 	uploadReq, err := http.NewRequest(http.MethodPut, uploadURL, &buf)
 	if err != nil {
-		log.Printf("failed to create upload request:%v", err)
-		return "", fmt.Errorf("failed to create upload request: %w", err)
+		slog.Error("Failed to create upload request", "error", err)
+		return "", err
 	}
 	uploadReq.Header.Set("Content-Type", "application/octet-stream")
 
 	uploadResp, err := http.DefaultClient.Do(uploadReq)
 	if err != nil {
-		log.Printf("failed to upload image:%v", err)
-		return "", fmt.Errorf("failed to upload image: %w", err)
+		slog.Error("Failed to upload image", "error", err)
+		return "", err
 	}
 	defer uploadResp.Body.Close()
 
 	if uploadResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(uploadResp.Body)
-		log.Printf("upload failed: %s", body)
+		slog.Error("Image upload failed", "response", string(body))
 		return "", fmt.Errorf("upload failed: %s", body)
 	}
 
-	respBuf := new(bytes.Buffer)
-	respBuf.ReadFrom(uploadResp.Body)
-	log.Printf("image url: %s", uploadURL)
-
-	return respBuf.String(), nil
+	slog.Info("Image uploaded successfully", "url", publicURL)
+	return publicURL, nil
 }

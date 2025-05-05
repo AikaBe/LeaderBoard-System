@@ -1,20 +1,20 @@
-// /internal/app/services/post_service.go
 package services
 
 import (
 	"1337b04rd/internal/app/domain/models"
 	"1337b04rd/internal/app/domain/ports"
 	"fmt"
+	"log/slog"
 	"time"
 )
 
-// Сервис для работы с постами
+// PostService provides operations for managing posts.
 type PostService struct {
-	PostRepository ports.PostRepository // Используем интерфейс репозитория
+	PostRepository ports.PostRepository
 	SessionRepo    ports.SessionRepository
 }
 
-// Конструктор для создания нового PostService
+// NewPostService creates a new instance of PostService.
 func NewPostService(postRepo ports.PostRepository, sessionRepo ports.SessionRepository) *PostService {
 	return &PostService{
 		PostRepository: postRepo,
@@ -22,26 +22,15 @@ func NewPostService(postRepo ports.PostRepository, sessionRepo ports.SessionRepo
 	}
 }
 
-// Метод для проверки, истекло ли время с последнего комментария поста
-func (s *PostService) IsPostExpired(p *models.Post) bool {
-	if len(p.Comments) == 0 {
-		// Если прошло больше 10 минут с создания, пост истек
-		return time.Since(p.CreatedAt) > 10*time.Minute
-	}
-	// Если прошло больше 15 минут с последнего комментария, пост истек
-	lastComment := p.Comments[len(p.Comments)-1]
-	return time.Since(lastComment.CreatedAt) > 15*time.Minute
-}
-
+// CreatePost creates a new post using session data.
 func (s *PostService) CreatePost(sessionID, title, text, imageURL string) (*models.Post, error) {
 	userData, ok := s.SessionRepo.GetSessionData(sessionID)
 	if !ok {
+		slog.Warn("Session not found", "SessionID", sessionID)
 		return nil, fmt.Errorf("session not found")
 	}
 
-	postID := generateUniqueID()
 	post := &models.Post{
-		ID:         postID,
 		Title:      title,
 		Text:       text,
 		UserName:   userData.Name,
@@ -53,80 +42,107 @@ func (s *PostService) CreatePost(sessionID, title, text, imageURL string) (*mode
 
 	createdPost, err := s.PostRepository.CreatePost(post)
 	if err != nil {
+		slog.Error("Failed to create post", "error", err)
 		return nil, err
 	}
 
-	delay := 10 * time.Minute
-	if len(post.Comments) > 0 {
-		delay = 15 * time.Minute
-	}
-	go s.schedulePostDeletion(post.ID, delay)
-
+	slog.Info("Post created successfully", "PostID", createdPost.ID, "UserName", post.UserName)
 	return createdPost, nil
 }
 
-// Обновление имени пользователя в посте и комментариях
-func (s *PostService) UpdateUserName(postID, newUserName string) error {
-	post, err := s.PostRepository.GetPostByID(postID)
-	if err != nil {
-		return err
-	}
-
-	// Обновляем имя пользователя в посте и комментариях
-	post.UserName = newUserName
-	for i := range post.Comments {
-		post.Comments[i].UserName = newUserName
-	}
-
-	_, err = s.PostRepository.UpdatePost(post)
-	return err
-}
-
-// Метод для удаления поста после определенного времени
-func (s *PostService) schedulePostDeletion(postID string, delay time.Duration) {
-	time.Sleep(delay)
-
-	post, err := s.PostRepository.GetPostByID(postID)
-	if err != nil || post == nil {
-		return
-	}
-
-	if s.IsPostExpired(post) {
-		post.IsHidden = true
-		post.UpdatedAt = time.Now()
-		_, _ = s.PostRepository.UpdatePost(post) // обновляем флаг скрытия
-	}
-}
-
-// Метод для удаления поста
-func (s *PostService) DeletePost(postID string) error {
-	// Проверяем, существует ли пост
-	post, err := s.PostRepository.GetPostByID(postID)
-	if err != nil {
-		return err
-	}
-	if post == nil {
-		return fmt.Errorf("post not found")
-	}
-
-	// Удаляем пост из репозитория
-	err = s.PostRepository.DeletePost(postID)
-	if err != nil {
-		return fmt.Errorf("failed to delete post: %w", err)
-	}
-	return nil
-}
-
-// Метод для получения всех постов
+// GetAllPosts retrieves all posts.
 func (s *PostService) GetAllPosts() ([]*models.Post, error) {
 	posts, err := s.PostRepository.GetAllPosts()
 	if err != nil {
+		slog.Error("Failed to fetch posts", "error", err)
 		return nil, fmt.Errorf("failed to fetch posts: %w", err)
 	}
+	slog.Info("All posts retrieved", "Count", len(posts))
 	return posts, nil
 }
 
-// Генерация уникального ID для поста
-func generateUniqueID() string {
-	return fmt.Sprintf("post-%d", time.Now().UnixNano())
+// GetPostByID retrieves a post by its ID.
+func (s *PostService) GetPostByID(id string) (*models.Post, error) {
+	post, err := s.PostRepository.GetPostByID(id)
+	if err != nil {
+		slog.Error("Failed to get post by ID", "PostID", id, "error", err)
+		return nil, fmt.Errorf("failed to get post by ID: %w", err)
+	}
+	slog.Info("Post retrieved", "PostID", id)
+	return post, nil
+}
+
+// StartArchiver runs a background job that periodically checks posts for archiving.
+func (s *PostService) StartArchiver() {
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+
+		for {
+			<-ticker.C
+
+			posts, err := s.PostRepository.GetAllPosts()
+			if err != nil {
+				slog.Error("Error fetching posts for archiving", "error", err)
+				continue
+			}
+
+			now := time.Now()
+
+			for _, post := range posts {
+				if post.ArchivedAt != nil {
+					continue
+				}
+
+				shouldArchive := false
+
+				if len(post.Comments) == 0 {
+					if post.CreatedAt.Add(10 * time.Minute).Before(now) {
+						shouldArchive = true
+					}
+				} else {
+					var lastCommentTime time.Time
+					for _, c := range post.Comments {
+						if c.CreatedAt.After(lastCommentTime) {
+							lastCommentTime = c.CreatedAt
+						}
+					}
+					if lastCommentTime.Add(15 * time.Minute).Before(now) {
+						shouldArchive = true
+					}
+				}
+
+				if shouldArchive {
+					err := s.PostRepository.ArchivePost(post.ID)
+					if err != nil {
+						slog.Error("Failed to archive post", "PostID", post.ID, "error", err)
+					} else {
+						slog.Info("Post archived", "PostID", post.ID)
+					}
+				}
+			}
+		}
+	}()
+}
+
+// GetArchivedPosts returns all archived posts.
+func (s *PostService) GetArchivedPosts() ([]*models.Post, error) {
+	posts, err := s.PostRepository.GetArchivedPosts()
+	if err != nil {
+		slog.Error("Failed to fetch archived posts", "error", err)
+		return nil, err
+	}
+	slog.Info("Archived posts retrieved", "Count", len(posts))
+	return posts, nil
+}
+
+// GetArchivedPostByID retrieves an archived post by its ID.
+func (s *PostService) GetArchivedPostByID(id string) (*models.Post, error) {
+	post, err := s.PostRepository.GetArchivedPostByID(id)
+	if err != nil {
+		slog.Error("Failed to get archived post by ID", "PostID", id, "error", err)
+		return nil, fmt.Errorf("failed to get post by ID: %w", err)
+	}
+	slog.Info("Archived post retrieved", "PostID", id)
+	return post, nil
 }

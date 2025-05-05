@@ -28,21 +28,15 @@
 
     <nav>
         <!-- Navigation links -->
-        [<a href="catalog.html">Catalog</a>] |
-        [<a href="archive.html">Archive</a>]
+        [<a href="/posts">Catalog</a>] |
+        [<a href="/archive">Archive</a>]
     </nav>
     <br>
 </header>
 <main>
-    <form action="/submit-post" method="POST" enctype="multipart/form-data">
+    <form action="/create-post" method="POST" enctype="multipart/form-data">
         <table class="postForm">
             <tbody>
-            <tr>
-                <td>Name</td>
-                <td>
-                    <input name="name" type="text" placeholder="Anonymous">
-                </td>
-            </tr>
             <tr>
                 <td>Subject</td>
                 <td>
@@ -58,7 +52,7 @@
             <tr>
                 <td>File</td>
                 <td>
-                    <input name="file" type="file">
+                    <input name="image" type="file">
                 </td>
             </tr>
             <tr>

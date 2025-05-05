@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -63,20 +62,16 @@ func UploadObjectHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error saving object metadata: %v", err)
 		return
 	}
-	// Construct the URL to access the uploaded image
-	// Пример: http://localhost:9090/images/photo.jpg
-	imageURL := fmt.Sprintf("http://%s/images/%s", r.Host, objectKey)
+
+	//host := "triple-s"
+	//port := "9000"
+	//imageURL := fmt.Sprintf("http://%s:%s/images/%s", host, port, objectKey)
+	imageURL := fmt.Sprintf("http://localhost:9000/%s/%s", bucketName, objectKey)
 
 	// Return JSON response with image URL
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
-		"message":  "Object uploaded successfully",
-		"imageUrl": imageURL,
-	})
-	// Respond with success
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Object '%s' uploaded successfully", objectKey)
+	w.Write([]byte(imageURL))
 }
 
 // Helper function to validate object key
