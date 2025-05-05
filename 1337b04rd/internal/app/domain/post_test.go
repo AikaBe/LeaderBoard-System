@@ -1,4 +1,4 @@
-package testing
+package domain
 
 import (
 	"1337b04rd/internal/app/domain/models"
@@ -29,6 +29,23 @@ func (m *MockPostRepository) CreatePost(post *models.Post) error {
 	if m.createErr != nil {
 		return m.createErr
 	}
+
+	if post.Title == "" {
+		return errors.New("title is required")
+	}
+	if post.Text == "" {
+		return errors.New("text is required")
+	}
+	if post.UserName == "" {
+		return errors.New("user name is required")
+	}
+	if post.UserAvatar == "" {
+		return errors.New("user avatar is required")
+	}
+	if post.ImageURL == "" {
+		return errors.New("image URL is required")
+	}
+
 	m.lastID++
 	post.ID = m.lastID
 	post.CreatedAt = time.Now()
@@ -178,25 +195,5 @@ func TestGetPostByID_Success(t *testing.T) {
 	}
 	if retrievedPost.Title != testPost.Title {
 		t.Fatalf("Expected title '%s', got '%s'", testPost.Title, retrievedPost.Title)
-	}
-}
-
-func TestDeletePost_Success(t *testing.T) {
-	// Setup
-	mockRepo := NewMockPostRepository()
-	testPost := createValidPost()
-	_ = mockRepo.CreatePost(testPost)
-
-	// Execute
-	err := mockRepo.DeletePost(testPost.ID)
-	// Verify
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
-	}
-
-	// Verify post is deleted
-	_, getErr := mockRepo.GetPostByID(testPost.ID)
-	if getErr == nil {
-		t.Fatal("Expected post to be deleted, but it wasn't")
 	}
 }

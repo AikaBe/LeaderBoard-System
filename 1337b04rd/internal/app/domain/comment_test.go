@@ -1,8 +1,9 @@
-package testing
+package domain
 
 import (
 	"1337b04rd/internal/app/domain/models"
 	"errors"
+	"testing"
 	"time"
 )
 
@@ -68,4 +69,20 @@ func (m *MockCommentRepository) GetCommentsByPostID(postID int) ([]*models.Comme
 		}
 	}
 	return postComments, nil
+}
+
+func TestCreateComment(t *testing.T) {
+	repo := NewMockCommentRepository()
+	comment := &models.Comment{PostID: 1, Text: "Test"}
+
+	err := repo.CreateComment(comment)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if comment.ID != 1 {
+		t.Errorf("expected ID to be 1, got %d", comment.ID)
+	}
+	if comment.CreatedAt.IsZero() {
+		t.Error("expected CreatedAt to be set")
+	}
 }
