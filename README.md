@@ -1,96 +1,139 @@
-# 🧠 1337b04rd
+# MarketFlow
 
-## 📚 Learning Objectives
+MarketFlow is a real-time market data processing system built in Go using Hexagonal Architecture. The application collects data from cryptocurrency exchange simulators or generates test data, aggregates prices, stores them in PostgreSQL, and caches them in Redis. A built-in REST API provides convenient access to aggregated market information.
 
-- REST API
-- Authentication and Cookies
-- S3 Integration
-- SQL with PostgreSQL
-- Hexagonal Architecture
-- Logging
-- Testing
-- Basic Frontend
-- Elementary Concurrency
+## 🚀 Live Demo
 
----
+View Live Application
+(replace with actual link if available)
 
-## 📖 Abstract
+## 🛠️ Technologies Used
 
-**1337b04rd** — это анонимная imageboard-платформа, вдохновлённая первыми форумами в интернете. Ваша задача — создать простой, но мощный способ общения: без регистрации, с поддержкой изображений, комментариев и анонимности.
+Backend: Go (1.21+)
 
----
+Database: PostgreSQL
 
+Cache: Redis
 
----
+Deployment: Docker, Docker Compose
 
-## 🔗 Resources
+## ✨ Features
 
-- 📘 Предыдущий проект: `triple-s`
-- 📐 Hexagonal Architecture: [читай здесь](https://alistair.cockburn.us/hexagonal-architecture/)
-- 🐘 PostgreSQL: [официальная документация](https://www.postgresql.org/)
-- 🍪 Cookies: [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies)
+Real-time aggregation of market prices
 
----
+Live/Test modes for flexible data sources
 
+Worker pool for concurrent feed processing (5 workers per exchange)
 
-### 💡 Архитектура
+Fan-In / Fan-Out architecture for data streams
 
-**Hexagonal Architecture (Ports and Adapters)**:
-- **Domain Layer**: бизнес-логика (создание постов, комментариев, сессий).
-- **Infrastructure Layer**: адаптеры (PostgreSQL, S3, API Rick & Morty).
-- **UI Layer**: HTTP-обработчики, middleware.
+Batch insertion into PostgreSQL for efficiency
 
----
+Automatic fallback to DB if Redis is unavailable
 
-### 🧩 Шаблоны
+REST API to fetch latest, highest, lowest, and average prices
 
-- `catalog.html` — список постов.
-- `archive.html` — архив постов.
-- `post.html` — один пост + комме- `error.html` — отображение ошибок.
----
+System health endpoint and structured logging
 
-### 📝 Посты и Комментарии
+## 📦 Installation
 
-#### Пост:
-- Заголовок, текст, ID, аватар, имя, изображение.
-- Удаление:
-  - Без комментариев — через **10 минут**.
-  - С комментариями — через **15 минут после последнего комментария**.
+Clone the repository:
 
-#### Комментарий:
-- Ответ на пост или другой комментарий.
-- Отображается ID и аватар.
-- Вложенные ответы через ID-ссылку.
-
----
-
-### 💾 Хранение данных
-
-- **PostgreSQL** — хранение постов, комментариев, сессий.
-- **S3** — хранение изображений (минимум 2 бакета).
-- Аватары **не** сохраняются локально.
-
----
-
-### 🌐 API и функционал
-
-- REST API на Go.
-- Использование `log/slog` для логирования.
-- Идентификация через cookie (без регистрации).
-- Интеграция Rick & Morty API (аватары).
-- Поддержка изображений через S3.
-- Frontend предоставляется.
-
----
+git clone hgit@github.com:AikaBe/LeaderBoard-System.git
+cd marketflow
 
 
-### 🧪 Testing
+Load exchange simulator images (if needed):
 
-- Минимум **20%** покрытия тестами.
-- Обязательные юнит-тесты:
-  - Создание постов и комментариев
-  - Сессии и аватары
-  - Операции с PostgreSQL
-  - Взаимодействие с S3
-  - Взаимодействие с Rick & Morty API
+docker-compose run --rm load_images
 
+
+Build the project:
+
+docker-compose build
+
+
+Configure config.yaml:
+
+postgres:
+host: localhost
+port: 5432
+user: marketflow
+password: secret
+dbname: marketflow_db
+
+redis:
+host: localhost
+port: 6379
+password: ""
+
+exchanges:
+- name: exchange1
+  host: 127.0.0.1
+  port: 40101
+- name: exchange2
+  host: 127.0.0.1
+  port: 40102
+- name: exchange3
+  host: 127.0.0.1
+  port: 40103
+
+## 🎯 Usage
+Start the application with Docker Compose:
+docker-compose up
+
+Running exchange simulators (Live Mode):
+docker load -i exchange1_amd64.tar
+docker run -p 40101:40101 -d exchange1_amd64
+
+docker load -i exchange2_amd64.tar
+docker run -p 40102:40102 -d exchange2_amd64
+
+docker load -i exchange3_amd64.tar
+docker run -p 40103:40103 -d exchange3_amd64
+
+API Examples
+
+Fetch the latest price for BTCUSDT:
+
+curl http://localhost:8080/prices/latest/BTCUSDT
+
+
+Switch to test mode:
+
+curl -X POST http://localhost:8080/mode/test
+
+
+Check system health:
+
+curl http://localhost:8080/health
+
+## 🏗️ Architecture
+
+Hexagonal Architecture (Ports & Adapters):
+
+Domain Layer: business logic (price aggregation, data models)
+
+Application Layer: use-case processing, worker pool management, data flow handling
+
+Adapters:
+
+HTTP Adapter (REST API)
+
+Storage Adapter (PostgreSQL)
+
+Cache Adapter (Redis)
+
+Exchange Adapter (Live/Test sources)
+
+The system supports fan-in/fan-out data processing, batch inserts, Redis caching with fallback, and automatic reconnection to data sources in case of failure.
+
+## 🔮 Future Improvements
+
+Add WebSocket endpoints for live price streaming
+
+Support additional trading pairs and exchanges
+
+Add authentication and API key management
+
+Implement historical data analytics and visualization
