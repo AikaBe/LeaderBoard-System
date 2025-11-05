@@ -1,139 +1,136 @@
-# MarketFlow
-
-MarketFlow is a real-time market data processing system built in Go using Hexagonal Architecture. The application collects data from cryptocurrency exchange simulators or generates test data, aggregates prices, stores them in PostgreSQL, and caches them in Redis. A built-in REST API provides convenient access to aggregated market information.
-
-## 🚀 Live Demo
-
-View Live Application
-(replace with actual link if available)
+# LeaderBoard
+Leaderboard is a simplified anonymous imageboard inspired by early internet forums. Users can create posts, comment, and share images without the need for user registration. This project is built using Go and PostgreSQL with a focus on Hexagonal Architecture, session management, and integration with external services like The Rick and Morty API for user avatars.
 
 ## 🛠️ Technologies Used
 
-Backend: Go (1.21+)
+Frontend: Provided HTML templates (customizable, no frontend development required)
 
-Database: PostgreSQL
+Backend: Go (Golang), PostgreSQL, S3-compatible storage (MinIO or similar)
 
-Cache: Redis
+Architecture: Hexagonal Architecture (Ports and Adapters pattern)
 
-Deployment: Docker, Docker Compose
+Session Management: HTTP cookies (no user registration)
+
+External APIs: Rick and Morty API for user avatars
+
+Deployment: Docker (for local development)
 
 ## ✨ Features
 
-Real-time aggregation of market prices
+Anonymous posts and comments: Users can create posts with text, images, and comments. No registration required.
 
-Live/Test modes for flexible data sources
+Image uploads: Attach images to posts and comments, stored securely on S3-compatible storage.
 
-Worker pool for concurrent feed processing (5 workers per exchange)
+User avatars: Unique avatars assigned to users using the Rick and Morty API.
 
-Fan-In / Fan-Out architecture for data streams
+Session-based user identification: Each session is tracked via cookies, ensuring a persistent user experience.
 
-Batch insertion into PostgreSQL for efficiency
+Post expiration: Posts without comments are deleted after 10 minutes; posts with comments are deleted after 15 minutes of inactivity.
 
-Automatic fallback to DB if Redis is unavailable
+Responsive design: Mobile and desktop-friendly design with provided templates.
 
-REST API to fetch latest, highest, lowest, and average prices
-
-System health endpoint and structured logging
+RESTful API: Backend server exposes a REST API that interacts with the frontend.
 
 ## 📦 Installation
+Requirements
+
+Go (v1.16+)
+
+PostgreSQL database
+
+S3-compatible storage (MinIO or alternative)
+
+Setup Instructions
 
 Clone the repository:
 
-git clone hgit@github.com:AikaBe/LeaderBoard-System.git
-cd marketflow
+git clone https://github.com/AikaBe/LeaderBoard-System.git
+cd 1337b04rd
 
 
-Load exchange simulator images (if needed):
+Install Go dependencies:
 
-docker-compose run --rm load_images
-
-
-Build the project:
-
-docker-compose build
+go mod tidy
 
 
-Configure config.yaml:
+Set up the PostgreSQL database:
+Create a PostgreSQL database and configure the connection details in the .env file.
 
-postgres:
-host: localhost
-port: 5432
-user: marketflow
-password: secret
-dbname: marketflow_db
+Example .env file:
 
-redis:
-host: localhost
-port: 6379
-password: ""
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+DB_NAME=1337b04rd
 
-exchanges:
-- name: exchange1
-  host: 127.0.0.1
-  port: 40101
-- name: exchange2
-  host: 127.0.0.1
-  port: 40102
-- name: exchange3
-  host: 127.0.0.1
-  port: 40103
+
+Start S3-compatible storage (e.g., MinIO):
+
+Run MinIO locally or use an S3 provider for image storage.
+
+Set the appropriate environment variables for storage credentials in the .env file.
+
+Run the server:
+
+go run ./cmd/1337b04rd
+
+
+Access the application:
+Navigate to http://localhost:8080 in your browser to interact with the imageboard.
 
 ## 🎯 Usage
-Start the application with Docker Compose:
-docker-compose up
-
-Running exchange simulators (Live Mode):
-docker load -i exchange1_amd64.tar
-docker run -p 40101:40101 -d exchange1_amd64
-
-docker load -i exchange2_amd64.tar
-docker run -p 40102:40102 -d exchange2_amd64
-
-docker load -i exchange3_amd64.tar
-docker run -p 40103:40103 -d exchange3_amd64
-
-API Examples
-
-Fetch the latest price for BTCUSDT:
-
-curl http://localhost:8080/prices/latest/BTCUSDT
+Starting the Application
+./1337b04rd --port 8080
 
 
-Switch to test mode:
+This will start the backend server. You can access the imageboard via http://localhost:8080.
 
-curl -X POST http://localhost:8080/mode/test
+Post and Comment Creation
 
+Create a new post: Visit the main page and click on "Create New Post". You can add text and optionally attach an image.
 
-Check system health:
+Add comments: To comment on a post, navigate to the post's page and type your comment. You can reply to specific comments by clicking on their ID.
 
-curl http://localhost:8080/health
+View posts: On the main page (catalog.html), you'll see active threads, and archived threads can be accessed via the "Archive" button.
+
+Session Management
+
+The system uses cookies to track user sessions. Upon the first visit, each user is assigned a unique avatar and name from the Rick and Morty API.
 
 ## 🏗️ Architecture
+Hexagonal Architecture
 
-Hexagonal Architecture (Ports & Adapters):
+This project follows Hexagonal Architecture (also known as Ports and Adapters pattern), which separates core business logic from external systems (e.g., database, image storage, web server). This ensures that the core functionality remains independent of how data is stored or served.
 
-Domain Layer: business logic (price aggregation, data models)
+Domain Layer:
 
-Application Layer: use-case processing, worker pool management, data flow handling
+Contains core business logic for creating posts, comments, and managing sessions.
 
-Adapters:
+Defines interfaces (ports) for data storage and external services.
 
-HTTP Adapter (REST API)
+Infrastructure Layer:
 
-Storage Adapter (PostgreSQL)
+Concrete implementations of the domain interfaces (e.g., PostgreSQL for data storage, MinIO for image storage, and external APIs for avatars).
 
-Cache Adapter (Redis)
+User Interface Layer:
 
-Exchange Adapter (Live/Test sources)
+Handles incoming HTTP requests, session management, and routing.
 
-The system supports fan-in/fan-out data processing, batch inserts, Redis caching with fallback, and automatic reconnection to data sources in case of failure.
+Serves the provided HTML templates to interact with the user.
+
+Session and User Identification
+
+Users are tracked via cookies. On the first visit, they are assigned a unique avatar and name fetched from the Rick and Morty API.
+
+Avatars are unique for each user per session. If all avatars are used, they may be reused.
 
 ## 🔮 Future Improvements
 
-Add WebSocket endpoints for live price streaming
+Admin features: Implement an admin interface to manage posts and comments manually.
 
-Support additional trading pairs and exchanges
+Search functionality: Add the ability to search for posts or comments by keywords.
 
-Add authentication and API key management
+User registration: Optional feature to enable user registration for persistent profiles.
 
-Implement historical data analytics and visualization
+Advanced error handling: Improve error messages and response handling for users.
